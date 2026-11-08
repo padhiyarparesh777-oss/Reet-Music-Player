@@ -198,7 +198,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
         }
         else -> songs
     }
-    val visible = remember(source, query, sort, ascending) {
+    val visible = remember(source, query, sort, ascending, mediaCategory) {
         val found = source.filter { query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true) || it.album.contains(query, true) }
         val ordered = when (sort) {
             "Artist" -> found.sortedBy { it.artist.lowercase(Locale.getDefault()) }
@@ -217,11 +217,17 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Reet l 🌍🫶🏻", color = fg, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
-                        Text("MUSIC THAT FEELS LIKE YOU", color = accent, fontSize = 8.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(27.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("REET", color = fg, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-.5).sp)
+                            Text("Music Player", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
-                    CircleAction(Icons.Default.Tune, fg, panel) { showSettings = true }
+                    CircleAction(Icons.Default.Search, fg, panel) { tab = "Search"; mediaCategory = "Songs" }
+                    Spacer(Modifier.width(8.dp))
+                    CircleAction(Icons.Default.NotificationsNone, fg, panel) { scan() }
                 }
                 AnimatedVisibility(visible = current != null, enter = androidx.compose.animation.fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(260)), exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(180))) {
                     Row(
@@ -257,6 +263,25 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    listOf("Songs", "Albums", "Artists", "Folders").forEach { category ->
+                        val selected = mediaCategory == category
+                        Text(
+                            category,
+                            color = if (selected) Color.White else muted,
+                            fontSize = 10.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.clip(RoundedCornerShape(18.dp))
+                                .background(if (selected) accent else panel.copy(alpha = .72f))
+                                .border(1.dp, if (selected) accent else glassStroke, RoundedCornerShape(18.dp))
+                                .clickable { mediaCategory = category; selectedPlaylist = null }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
+                    }
+                }
                 if (tab == "Search") Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .94f), panel.copy(alpha = .72f)))).border(1.dp, glassStroke, RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -268,8 +293,8 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(when { tab == "Home" -> "Your soundtrack"; tab == "Search" -> "Find your music"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(visible.size.toString() + " tracks · Offline library", color = muted, fontSize = 10.sp)
+                        Text(when { tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(visible.size.toString() + if (mediaCategory == "Songs") " tracks · Offline library" else " " + mediaCategory.lowercase(Locale.getDefault()), color = muted, fontSize = 10.sp)
                     }
                     Text(sort, color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { sort = when(sort) { "Title" -> "Artist"; "Artist" -> "Album"; "Album" -> "Duration"; else -> "Title" } }.padding(7.dp))
                     CircleAction(Icons.Default.SwapVert, fg, panel, 34) { ascending = !ascending }
@@ -335,8 +360,8 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                                 SongArtwork(song.albumId, accent, 39)
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text(song.title, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(song.artist + " · " + song.album, color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(when(mediaCategory) { "Albums" -> song.album; "Artists" -> song.artist; "Folders" -> song.folder; else -> song.title }, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(if (mediaCategory == "Songs") song.artist + " · " + song.album else songs.count { when(mediaCategory) { "Albums" -> it.album == song.album; "Artists" -> it.artist == song.artist; else -> it.folder == song.folder } }.toString() + " tracks", color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Text(formatTime(song.duration), color = muted, fontSize = 9.sp)
                                 Spacer(Modifier.width(5.dp))
@@ -363,7 +388,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp).height(62.dp).clip(RoundedCornerShape(18.dp))
                         .background(Brush.verticalGradient(listOf(panel.copy(alpha = .96f), panel.copy(alpha = .72f)))).border(1.dp, glassStroke.copy(alpha = .9f), RoundedCornerShape(18.dp))
                         .clickable { showPlayer = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ArtworkPlaceholder(accent, 42)
+                        current?.let { SongArtwork(it.albumId, accent, 42) } ?: ArtworkPlaceholder(accent, 42) 
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(current?.title.orEmpty(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
