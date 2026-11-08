@@ -2,6 +2,7 @@ package com.reet.music
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.ComponentName
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -58,7 +59,9 @@ import androidx.core.content.ContextCompat
 import androidx.palette.graphics.Palette
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -79,14 +82,30 @@ private data class Song(
 )
 
 class MainActivity : ComponentActivity() {
-    private lateinit var player: ExoPlayer
+    private var controllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             window.attributes = window.attributes.apply { preferredRefreshRate = 120f }
         }
-        player = ExoPlayer.Builder(this).build()
-        setContent { ReetApp(player, ::loadDeviceSongs) }
+        val token = SessionToken(this, ComponentName(this, MusicPlaybackService::class.java))
+        val future = MediaController.Builder(this, token).buildAsync()
+        controllerFuture = future
+        future.addListener({
+            try {
+                val controller = future.get()
+                setContent { ReetApp(controller, ::loadDeviceSongs) }
+            } catch (_: Exception) {
+                setContent {
+                    MaterialTheme(colorScheme = darkColorScheme()) {
+                        Box(Modifier.fillMaxSize().background(Charcoal), contentAlignment = Alignment.Center) {
+                            Text("REET could not connect to the playback service. Please reopen the app.", color = Color.White)
+                        }
+                    }
+                }
+            }
+        }, ContextCompat.getMainExecutor(this))
     }
     private fun loadDeviceSongs(): List<Song> {
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
@@ -121,12 +140,16 @@ class MainActivity : ComponentActivity() {
         }
         return result
     }
-    override fun onDestroy() { player.release(); super.onDestroy() }
+    override fun onDestroy() {
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
+        super.onDestroy()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
+private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("reet_library", android.content.Context.MODE_PRIVATE) }
     val haptic = LocalHapticFeedback.current
