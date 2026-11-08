@@ -124,7 +124,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
     var query by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
     var recent by remember { mutableStateOf(prefs.getString("recent", "").orEmpty().split("|").filter { it.isNotBlank() }) }
-    var playlists by remember { mutableStateOf(prefs.getStringSet("playlist_names", emptySet())?.toSet()?.sorted() ?: emptyList()) }
+    var playlists by remember { mutableStateOf<List<String>>(prefs.getStringSet("playlist_names", emptySet())?.toList()?.sorted() ?: emptyList<String>()) }
     var selectedPlaylist by remember { mutableStateOf<String?>(null) }
     var playlistDialog by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("") }
