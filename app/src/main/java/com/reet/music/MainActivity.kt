@@ -187,7 +187,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
 
     val source = when {
         tab == "Favourites" -> songs.filter { favorites.contains(it.id.toString()) }
-        tab == "Library" && selectedPlaylist != null -> when (selectedPlaylist) {
+        (tab == "Library" || tab == "Playlists") && selectedPlaylist != null -> when (selectedPlaylist) {
             "__recent__" -> recent.mapNotNull { id -> songs.firstOrNull { it.id.toString() == id } }
             else -> songs.filter { prefs.getStringSet("playlist_" + selectedPlaylist, emptySet())?.contains(it.id.toString()) == true }
         }
