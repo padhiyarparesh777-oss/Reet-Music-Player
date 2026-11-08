@@ -586,6 +586,25 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         })
                     }
                 }
+                Divider(color = glassStroke)
+                Text("Audio & Playback", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) { Text("Equalizer & Effects", color = fg, fontSize = 11.sp); Text("Visualizer and sound presets", color = muted, fontSize = 9.sp) }
+                    Icon(Icons.Default.ChevronRight, null, tint = muted)
+                }
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "queue" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.QueueMusic, null, tint = accent); Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) { Text("Playback Queue", color = fg, fontSize = 11.sp); Text("View your songs", color = muted, fontSize = 9.sp) }
+                    Icon(Icons.Default.ChevronRight, null, tint = muted)
+                }
+                Divider(color = glassStroke)
+                Text("Library", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) { Text("Scan Music Library", color = fg, fontSize = 11.sp); Text("Refresh offline songs", color = muted, fontSize = 9.sp) }
+                    Icon(Icons.Default.ChevronRight, null, tint = muted)
+                }
                 Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 11.sp)
                 Text("Tap the sort label on the library screen to change sorting.", color = muted, fontSize = 10.sp)
                 Text("Offline mode · No streaming or account required.", color = muted, fontSize = 10.sp)
