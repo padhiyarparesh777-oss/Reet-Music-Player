@@ -71,6 +71,7 @@ private val Deep = Color(0xFF100E12)
 private val SoftText = Color(0xFFAAA2AA)
 private val Glass = Color(0xFF252128)
 private val Line = Color(0xFF403640)
+private val WaterTint = Color(0xFFBDEBFF)
 
 private data class Song(
     val id: Long, val title: String, val artist: String, val album: String,
@@ -165,8 +166,8 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
         else -> Pink
     }
     val bg = if (lightMode) Color(0xFFF7F2F5) else Charcoal
-    val panel = if (lightMode) Color(0xDFFFFFFF) else Color(0xB8322935)
-    val glassStroke = if (lightMode) Color.White.copy(alpha = .88f) else Color.White.copy(alpha = .13f)
+    val panel = if (lightMode) Color(0xBFFFFFFF) else Color(0x702B3440)
+    val glassStroke = if (lightMode) Color.White.copy(alpha = .92f) else Color.White.copy(alpha = .30f)
     val fg = if (lightMode) Color(0xFF211A20) else Color(0xFFF8F1F5)
     val muted = if (lightMode) Color(0xFF817680) else SoftText
     val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
@@ -225,10 +226,10 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
       CompositionLocalProvider(LocalIndication provides rememberRipple(color = Color.White.copy(alpha = .48f))) {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFF9EAF1) else Color(0xFF29202B), bg, if (lightMode) Color(0xFFF1E8F0) else Color(0xFF111015))))) {
-            // Soft colour wash behind translucent surfaces for the frosted, iOS-inspired finish.
-            Box(Modifier.align(Alignment.TopEnd).padding(top = 50.dp, end = 10.dp).size(230.dp).clip(CircleShape).background(accent.copy(alpha = if (lightMode) .16f else .22f)).blur(70.dp))
-            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 150.dp, start = 0.dp).size(190.dp).clip(CircleShape).background(Color(0xFFB85D91).copy(alpha = if (lightMode) .12f else .16f)).blur(75.dp))
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFEAF8FF) else Color(0xFF17242D), bg, if (lightMode) Color(0xFFF5EFFF) else Color(0xFF101820))))) {
+            // Water-glass atmosphere with soft cyan and violet light blooms.
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background(WaterTint.copy(alpha = if (lightMode) .32f else .20f)).blur(78.dp))
+            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background(Color(0xFFB6A7FF).copy(alpha = if (lightMode) .24f else .18f)).blur(82.dp))
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -362,8 +363,9 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         items(visible, key = { it.id }) { song ->
                             val active = current?.id == song.id
-                            Row(Modifier.fillMaxWidth().height(53.dp)
-                                .background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
+                            Row(Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(17.dp))
+                                .background(if (active) Brush.horizontalGradient(listOf(Color.White.copy(alpha = .20f), accent.copy(alpha = .13f), panel.copy(alpha = .30f))) else Brush.horizontalGradient(listOf(Color.White.copy(alpha = .055f), Color.Transparent)))
+                                .border(if (active) 1.dp else .6.dp, if (active) Color.White.copy(alpha = .48f) else glassStroke.copy(alpha = .35f), RoundedCornerShape(17.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
@@ -465,9 +467,9 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
     if (showPlayer && current != null) {
         val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(onDismissRequest = { showPlayer = false }, sheetState = sheet,
-            containerColor = if (lightMode) Color(0xFFF4EAF0) else Color(0xF21C171E),
-            scrimColor = Color.Black.copy(alpha = .62f),
-            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+            containerColor = if (lightMode) Color(0xCFEAF8FF) else Color(0xC91A2731),
+            scrimColor = Color.Black.copy(alpha = .48f),
+            shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
             dragHandle = { Box(Modifier.padding(vertical = 11.dp).size(38.dp, 4.dp).clip(CircleShape).background(muted)) }) {
             val song = current!!
             val art = rememberArtwork(song.albumId)
