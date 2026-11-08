@@ -185,11 +185,10 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
         lyrics = prefs.getString("lyrics_" + id, "") ?: ""
     }
 
-    val source = when (tab) {
-        "Favourites" -> songs.filter { favorites.contains(it.id.toString()) }
-        "Library" -> when (selectedPlaylist) {
+    val source = when {
+        tab == "Favourites" -> songs.filter { favorites.contains(it.id.toString()) }
+        tab == "Library" && selectedPlaylist != null -> when (selectedPlaylist) {
             "__recent__" -> recent.mapNotNull { id -> songs.firstOrNull { it.id.toString() == id } }
-            null -> emptyList()
             else -> songs.filter { prefs.getStringSet("playlist_" + selectedPlaylist, emptySet())?.contains(it.id.toString()) == true }
         }
         else -> songs
@@ -219,20 +218,8 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     CircleAction(Icons.Default.Tune, fg, panel) { showSettings = true }
                 }
                 Spacer(Modifier.height(17.dp))
-                Row(Modifier.fillMaxWidth().height(47.dp).clip(RoundedCornerShape(16.dp)).background(panel).border(1.dp, accent.copy(alpha = .22f), RoundedCornerShape(16.dp)).padding(4.dp)) {
-                    listOf("Home", "Songs", "Favourites", "Library").forEach { item ->
-                        val selected = tab == item
-                        val tint by animateColorAsState(if (selected) accent else muted, label = "navTint")
-                        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(if (selected) accent.copy(alpha = .15f) else Color.Transparent).clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            tab = item; selectedPlaylist = null
-                        }, contentAlignment = Alignment.Center) {
-                            Text(item, color = tint, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(panel).border(1.dp, Line.copy(alpha = .6f), RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.height(5.dp))
+                if (tab == "Search") Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(panel).border(1.dp, Line.copy(alpha = .6f), RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     BasicTextField(value = query, onValueChange = { query = it }, singleLine = true, modifier = Modifier.weight(1f),
@@ -243,7 +230,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(when { tab == "Home" -> "Your soundtrack"; tab == "Songs" -> "All songs"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Recently played" }, color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(when { tab == "Home" -> "Your soundtrack"; tab == "Search" -> "Find your music"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text(visible.size.toString() + " tracks · Offline library", color = muted, fontSize = 10.sp)
                     }
                     Text(sort, color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { sort = when(sort) { "Title" -> "Artist"; "Artist" -> "Album"; "Album" -> "Duration"; else -> "Title" } }.padding(7.dp))
@@ -261,7 +248,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                             Button(onClick = { permissionLauncher.launch(audioPermission) }, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.White)) { Text("Allow music access") }
                         }
                     }
-                } else if (tab == "Library" && selectedPlaylist == null) {
+                } else if (tab == "Playlists" && selectedPlaylist == null) {
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp)) {
                             Text("Your playlists", color = fg, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
@@ -270,7 +257,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(playlists) { name ->
                                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(panel).clickable { selectedPlaylist = name }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    ArtworkPlaceholder(accent, 42)
+                                    current?.let { SongArtwork(it.albumId, accent, 42) }
                                     Spacer(Modifier.width(10.dp))
                                     Column(Modifier.weight(1f)) { Text(name, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp); Text("Personal playlist", color = muted, fontSize = 10.sp) }
                                     Icon(Icons.Default.ChevronRight, null, tint = accent)
@@ -306,7 +293,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                                     player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).build() }, index.coerceAtLeast(0), 0L)
                                     player.prepare(); player.play(); showPlayer = true
                                 }.padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                ArtworkPlaceholder(accent, 39)
+                                SongArtwork(song.albumId, accent, 39)
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(song.title, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -345,6 +332,19 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         }
                         IconButton(onClick = { if (playing) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = accent) }
                         IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, null, tint = fg) }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 5.dp).clip(RoundedCornerShape(22.dp)).background(panel).border(1.dp, accent.copy(alpha = .22f), RoundedCornerShape(22.dp)).padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+                    listOf(Triple("Home", Icons.Default.Home, "Home"), Triple("Search", Icons.Default.Search, "Search"), Triple("Playlists", Icons.Default.QueueMusic, "Playlists"), Triple("Library", Icons.Default.LibraryMusic, "Library")).forEach { (name, icon, label) ->
+                        val selected = tab == name
+                        Column(Modifier.weight(1f).clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            tab = name; selectedPlaylist = null
+                            if (name != "Search") query = ""
+                        }, horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(icon, null, tint = if (selected) accent else muted, modifier = Modifier.size(19.dp))
+                            Text(label, color = if (selected) accent else muted, fontSize = 9.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                        }
                     }
                 }
             }
@@ -518,6 +518,15 @@ private fun rememberArtwork(albumId: Long): Bitmap? {
         }
     }
     return bitmap
+}
+
+@Composable
+private fun SongArtwork(albumId: Long, accent: Color, size: Int) {
+    val bitmap = rememberArtwork(albumId)
+    if (bitmap != null) {
+        androidx.compose.foundation.Image(bitmap.asImageBitmap(), null,
+            modifier = Modifier.size(size.dp).clip(RoundedCornerShape((size / 4).coerceAtLeast(8).dp)))
+    } else ArtworkPlaceholder(accent, size)
 }
 
 @Composable
