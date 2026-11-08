@@ -286,7 +286,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         items(visible, key = { it.id }) { song ->
                             val active = current?.id == song.id
-                            Row(Modifier.fillMaxWidth().height(57.dp).clip(RoundedCornerShape(15.dp)).background(if (active) accent.copy(alpha = .18f) else Brush.verticalGradient(listOf(panel.copy(alpha = .94f), panel.copy(alpha = .68f))))
+                            Row(Modifier.fillMaxWidth().height(57.dp).clip(RoundedCornerShape(15.dp)).then(if (active) Modifier.background(accent.copy(alpha = .18f)) else Modifier.background(Brush.verticalGradient(listOf(panel.copy(alpha = .94f), panel.copy(alpha = .68f))))
                                 .border(if (active) 1.dp else .8.dp, if (active) accent.copy(alpha = .72f) else glassStroke, RoundedCornerShape(15.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
