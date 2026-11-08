@@ -27,8 +27,11 @@ Open the repository in Android Studio, sync Gradle and run the `app` configurati
 
 For CI, GitHub Actions installs Java 17, Gradle 8.14.3 and Android SDK 36, then builds a debug APK. The APK is published as the `reet-android-16-debug-apk` workflow artifact when the build succeeds.
 
+## Playback architecture
+- Background playback runs in Media3 MediaSessionService, separate from the Activity lifecycle.
+- Lock-screen and notification controls are provided by the MediaSession.
+
 ## Planned improvements
-- Background playback with MediaSessionService and system media controls
 - Album artwork and improved now-playing screen
 - Playlists, sorting and richer library management
 - Optional equalizer integration where supported by the device
