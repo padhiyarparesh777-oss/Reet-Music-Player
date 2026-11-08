@@ -243,7 +243,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(when { tab == "Home" -> "Your soundtrack"; tab == "Songs" -> "All songs"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> selectedPlaylist!!; else -> "Recently played" }, color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(when { tab == "Home" -> "Your soundtrack"; tab == "Songs" -> "All songs"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Recently played" }, color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text(visible.size.toString() + " tracks · Offline library", color = muted, fontSize = 10.sp)
                     }
                     Text(sort, color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { sort = when(sort) { "Title" -> "Artist"; "Artist" -> "Album"; "Album" -> "Duration"; else -> "Title" } }.padding(7.dp))
