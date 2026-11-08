@@ -40,5 +40,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.media3:media3-exoplayer:1.6.1")
     implementation("androidx.media3:media3-common:1.6.1")
+    implementation("androidx.palette:palette-ktx:1.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
