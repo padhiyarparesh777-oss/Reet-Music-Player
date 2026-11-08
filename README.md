@@ -29,3 +29,7 @@ Open the repository in Android Studio, sync Gradle, then run the `app` configura
 - Favorites and playlists persisted with Room
 - Full now-playing screen, seek bar and queue
 - Equalizer integration where supported by the device
+
+
+## CI
+GitHub Actions builds a debug APK on every push to `main`.
