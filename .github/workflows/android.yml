@@ -23,6 +23,16 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/notifications
+          key: reet-gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle.properties', 'settings.gradle.kts') }}
+          restore-keys: |
+            reet-gradle-${{ runner.os }}-
+
       - name: Install Gradle 8.14.3
         run: |
           set -euo pipefail
@@ -50,8 +60,15 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
 
+      - name: Verify Android SDK
+        run: |
+          test -d "$ANDROID_HOME/platforms/android-36"
+          test -d "$ANDROID_HOME/build-tools/36.0.0"
+          java -version
+          gradle --version
+
       - name: Build debug APK
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        run: gradle --no-daemon --stacktrace --max-workers=2 :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
