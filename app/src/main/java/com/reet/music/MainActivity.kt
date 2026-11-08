@@ -13,6 +13,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
@@ -44,6 +46,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalIndication
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,7 +74,8 @@ private val Line = Color(0xFF403640)
 
 private data class Song(
     val id: Long, val title: String, val artist: String, val album: String,
-    val duration: Long, val folder: String, val albumId: Long, val uri: Uri
+    val duration: Long, val folder: String, val albumId: Long, val uri: Uri,
+    val fileSize: Long = 0L, val dateAdded: Long = 0L
 )
 
 class MainActivity : ComponentActivity() {
@@ -87,7 +93,8 @@ class MainActivity : ComponentActivity() {
         val projection = mutableListOf(
             MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID
+            MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.SIZE, MediaStore.Audio.Media.DATE_ADDED
         ).apply { if (Build.VERSION.SDK_INT >= 29) add(MediaStore.Audio.Media.RELATIVE_PATH) }.toTypedArray()
         val result = mutableListOf<Song>()
         contentResolver.query(collection, projection, "${MediaStore.Audio.Media.IS_MUSIC} != 0", null,
@@ -98,6 +105,8 @@ class MainActivity : ComponentActivity() {
             val album = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val duration = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val albumId = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val size = c.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+            val dateAdded = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
             val path = if (Build.VERSION.SDK_INT >= 29) c.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) else -1
             while (c.moveToNext()) {
                 val songId = c.getLong(id)
@@ -106,7 +115,8 @@ class MainActivity : ComponentActivity() {
                     c.getString(artist)?.takeIf { it != "<unknown>" } ?: "Unknown artist",
                     c.getString(album) ?: "Unknown album", c.getLong(duration),
                     relative.trim('/').substringAfterLast('/').ifBlank { "Music" },
-                    c.getLong(albumId), Uri.withAppendedPath(collection, songId.toString()))
+                    c.getLong(albumId), Uri.withAppendedPath(collection, songId.toString()),
+                    c.getLong(size), c.getLong(dateAdded))
             }
         }
         return result
@@ -136,8 +146,9 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
     var showPlayer by remember { mutableStateOf(false) }
     var utility by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
-    var sort by remember { mutableStateOf("Title") }
+    var sort by remember { mutableStateOf(prefs.getString("sort", "Name") ?: "Name") }
     var ascending by remember { mutableStateOf(true) }
+    var showSortOptions by remember { mutableStateOf(false) }
     var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", false)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
     var lyrics by remember { mutableStateOf("") }
@@ -204,13 +215,16 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
         val ordered = when (sort) {
             "Artist" -> found.sortedBy { it.artist.lowercase(Locale.getDefault()) }
             "Album" -> found.sortedBy { it.album.lowercase(Locale.getDefault()) }
-            "Duration" -> found.sortedBy { it.duration }
+            "Time" -> found.sortedByDescending { it.dateAdded }
+            "Size" -> found.sortedByDescending { it.fileSize }
+            "Length" -> found.sortedBy { it.duration }
             else -> found.sortedBy { it.title.lowercase(Locale.getDefault()) }
         }
         if (ascending) ordered else ordered.reversed()
     }
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
+      CompositionLocalProvider(LocalIndication provides rememberRipple(color = Color.White.copy(alpha = .48f))) {
         Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFF9EAF1) else Color(0xFF29202B), bg, if (lightMode) Color(0xFFF1E8F0) else Color(0xFF111015))))) {
             // Soft colour wash behind translucent surfaces for the frosted, iOS-inspired finish.
             Box(Modifier.align(Alignment.TopEnd).padding(top = 50.dp, end = 10.dp).size(230.dp).clip(CircleShape).background(accent.copy(alpha = if (lightMode) .16f else .22f)).blur(70.dp))
@@ -234,8 +248,8 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     Row(
                         Modifier.fillMaxWidth().padding(bottom = 9.dp).height(46.dp)
                             .clip(RoundedCornerShape(24.dp))
-                            .background(Brush.horizontalGradient(listOf(panel.copy(alpha = .98f), accent.copy(alpha = .20f), panel.copy(alpha = .94f))))
-                            .border(1.dp, glassStroke, RoundedCornerShape(24.dp))
+                             .background(Brush.horizontalGradient(listOf(Color.White.copy(alpha = .22f), panel.copy(alpha = .42f), accent.copy(alpha = .18f), Color.White.copy(alpha = .10f))))
+                            .border(1.dp, Color.White.copy(alpha = .34f), RoundedCornerShape(24.dp))
                             .clickable { showPlayer = true }.padding(horizontal = 11.dp)
                             .animateContentSize(),
                         verticalAlignment = Alignment.CenterVertically
@@ -297,7 +311,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         Text(when { tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text(visible.size.toString() + if (mediaCategory == "Songs") " tracks · Offline library" else " " + mediaCategory.lowercase(Locale.getDefault()), color = muted, fontSize = 10.sp)
                     }
-                    Text(sort, color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { sort = when(sort) { "Title" -> "Artist"; "Artist" -> "Album"; "Album" -> "Duration"; else -> "Title" } }.padding(7.dp))
+                    Text("Sort: $sort", color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(panel.copy(alpha = .65f)).clickable { showSortOptions = true }.padding(horizontal = 10.dp, vertical = 8.dp))
                     CircleAction(Icons.Default.SwapVert, fg, panel, 34) { ascending = !ascending }
                 }
                 Spacer(Modifier.height(9.dp))
@@ -386,7 +400,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 }
                 AnimatedVisibility(visible = current != null) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp).height(62.dp).clip(RoundedCornerShape(18.dp))
-                         .background(Brush.horizontalGradient(listOf(Color(0xFF3B2938), Color(0xFF28212B)))).border(1.dp, accent.copy(alpha = .55f), RoundedCornerShape(18.dp))
+                          .background(Brush.linearGradient(listOf(Color.White.copy(alpha = .22f), panel.copy(alpha = .42f), accent.copy(alpha = .17f)))).border(1.dp, Color.White.copy(alpha = .32f), RoundedCornerShape(22.dp))
                         .clickable { showPlayer = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         current?.let { SongArtwork(it.albumId, accent, 42) } ?: ArtworkPlaceholder(accent, 42) 
                         Spacer(Modifier.width(10.dp))
@@ -413,6 +427,39 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 }
             }
         }
+      }
+    }
+
+    if (showSortOptions) {
+        AlertDialog(onDismissRequest = { showSortOptions = false },
+            containerColor = if (lightMode) Color(0xEFFFFFFF) else Color(0xE925202A),
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("Sort your music", color = fg, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf("Name", "Time", "Size", "Length", "Artist", "Album").forEach { option ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp))
+                            .background(if (sort == option) accent.copy(alpha = .18f) else Color.White.copy(alpha = .045f))
+                            .clickable {
+                                sort = option
+                                prefs.edit().putString("sort", option).apply()
+                                showSortOptions = false
+                            }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(when(option) { "Name" -> "Song name"; "Time" -> "Recently added"; "Size" -> "File size"; "Length" -> "Duration"; else -> option }, color = fg, modifier = Modifier.weight(1f), fontSize = 13.sp)
+                            if (sort == option) Icon(Icons.Default.CheckCircle, null, tint = accent)
+                        }
+                    }
+                    Text("Order", color = muted, fontSize = 10.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Ascending" to true, "Descending" to false).forEach { (label, value) ->
+                            Text(label, color = if (ascending == value) Color.White else muted, modifier = Modifier.clip(RoundedCornerShape(18.dp))
+                                .background(if (ascending == value) accent else Glass).clickable { ascending = value }
+                                .padding(horizontal = 12.dp, vertical = 8.dp), fontSize = 10.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showSortOptions = false }) { Text("Done", color = accent) } })
     }
 
     if (showPlayer && current != null) {
