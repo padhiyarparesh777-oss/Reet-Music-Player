@@ -294,7 +294,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(when { tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(when { tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text(visible.size.toString() + if (mediaCategory == "Songs") " tracks · Offline library" else " " + mediaCategory.lowercase(Locale.getDefault()), color = muted, fontSize = 10.sp)
                     }
                     Text(sort, color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { sort = when(sort) { "Title" -> "Artist"; "Artist" -> "Album"; "Album" -> "Duration"; else -> "Title" } }.padding(7.dp))
@@ -348,20 +348,19 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         items(visible, key = { it.id }) { song ->
                             val active = current?.id == song.id
-                            Row(Modifier.fillMaxWidth().height(57.dp).clip(RoundedCornerShape(15.dp))
-                                .background(if (active) accent.copy(alpha = .18f) else panel.copy(alpha = .78f))
-                                .border(if (active) 1.dp else .8.dp, if (active) accent.copy(alpha = .72f) else glassStroke, RoundedCornerShape(15.dp))
+                            Row(Modifier.fillMaxWidth().height(53.dp)
+                                .background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
                                     val index = songs.indexOfFirst { it.id == song.id }
                                     player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).build() }, index.coerceAtLeast(0), 0L)
                                     player.prepare(); player.play(); showPlayer = true
-                                }.padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                SongArtwork(song.albumId, accent, 39)
+                                }.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                                SongArtwork(song.albumId, accent, 42)
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text(when(mediaCategory) { "Albums" -> song.album; "Artists" -> song.artist; "Folders" -> song.folder; else -> song.title }, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(when(mediaCategory) { "Albums" -> song.album; "Artists" -> song.artist; "Folders" -> song.folder; else -> song.title }, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(if (mediaCategory == "Songs") song.artist + " · " + song.album else songs.count { when(mediaCategory) { "Albums" -> it.album == song.album; "Artists" -> it.artist == song.artist; else -> it.folder == song.folder } }.toString() + " tracks", color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Text(formatTime(song.duration), color = muted, fontSize = 9.sp)
@@ -387,7 +386,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 }
                 AnimatedVisibility(visible = current != null) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp).height(62.dp).clip(RoundedCornerShape(18.dp))
-                        .background(Brush.verticalGradient(listOf(panel.copy(alpha = .96f), panel.copy(alpha = .72f)))).border(1.dp, glassStroke.copy(alpha = .9f), RoundedCornerShape(18.dp))
+                         .background(Brush.horizontalGradient(listOf(Color(0xFF3B2938), Color(0xFF28212B)))).border(1.dp, accent.copy(alpha = .55f), RoundedCornerShape(18.dp))
                         .clickable { showPlayer = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         current?.let { SongArtwork(it.albumId, accent, 42) } ?: ArtworkPlaceholder(accent, 42) 
                         Spacer(Modifier.width(10.dp))
@@ -396,7 +395,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                             Text(current?.artist.orEmpty(), color = muted, fontSize = 9.sp, maxLines = 1)
                         }
                         IconButton(onClick = { if (playing) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = accent) }
-                        IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, null, tint = fg) }
+                        IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.QueueMusic, null, tint = fg) }
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 5.dp).clip(RoundedCornerShape(22.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .96f), panel.copy(alpha = .68f)))).border(1.dp, glassStroke, RoundedCornerShape(22.dp)).padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
