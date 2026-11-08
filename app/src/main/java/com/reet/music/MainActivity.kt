@@ -414,7 +414,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.QueueMusic, null, tint = fg) }
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 5.dp).clip(RoundedCornerShape(22.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .96f), panel.copy(alpha = .68f)))).border(1.dp, glassStroke, RoundedCornerShape(22.dp)).padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 5.dp).clip(RoundedCornerShape(25.dp)).background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .25f), panel.copy(alpha = .72f), Color.White.copy(alpha = .08f)))).border(1.dp, Color.White.copy(alpha = .48f), RoundedCornerShape(25.dp)).padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
                     listOf(Triple("Home", Icons.Default.Home, "Home"), Triple("Search", Icons.Default.Search, "Search"), Triple("Playlists", Icons.Default.QueueMusic, "Playlists"), Triple("Library", Icons.Default.LibraryMusic, "Library")).forEach { (name, icon, label) ->
                         val selected = tab == name
                         Column(Modifier.weight(1f).clickable {
