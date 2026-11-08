@@ -70,14 +70,15 @@ class MainActivity : ComponentActivity() {
 
     private fun loadDeviceSongs(): List<Song> {
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
+        val projection = mutableListOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.RELATIVE_PATH
-        )
+            MediaStore.Audio.Media.DURATION
+        ).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(MediaStore.Audio.Media.RELATIVE_PATH)
+        }.toTypedArray()
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val result = mutableListOf<Song>()
         contentResolver.query(
@@ -89,7 +90,7 @@ class MainActivity : ComponentActivity() {
             val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val pathCol = cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+            val pathCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) else -1
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
                 val rawArtist = cursor.getString(artistCol)
