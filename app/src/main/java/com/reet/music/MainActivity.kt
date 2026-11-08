@@ -13,6 +13,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -75,6 +76,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var player: ExoPlayer
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.attributes = window.attributes.apply { preferredRefreshRate = 120f }
+        }
         player = ExoPlayer.Builder(this).build()
         setContent { ReetApp(player, ::loadDeviceSongs) }
     }
@@ -219,8 +223,40 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     }
                     CircleAction(Icons.Default.Tune, fg, panel) { showSettings = true }
                 }
-                Spacer(Modifier.height(17.dp))
-                Spacer(Modifier.height(5.dp))
+                AnimatedVisibility(visible = current != null, enter = androidx.compose.animation.fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(260)), exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(180))) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 9.dp).height(46.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Brush.horizontalGradient(listOf(panel.copy(alpha = .98f), accent.copy(alpha = .20f), panel.copy(alpha = .94f))))
+                            .border(1.dp, glassStroke, RoundedCornerShape(24.dp))
+                            .clickable { showPlayer = true }.padding(horizontal = 11.dp)
+                            .animateContentSize(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(27.dp).clip(CircleShape).background(accent.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(Modifier.width(9.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(current?.title.orEmpty(), color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (playing) "NOW PLAYING" else "PAUSED", color = accent, fontSize = 7.sp, letterSpacing = 1.2.sp)
+                        }
+                        IconButton(onClick = { player.seekToPreviousMediaItem() }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.SkipPrevious, null, tint = fg, modifier = Modifier.size(17.dp)) }
+                        IconButton(onClick = { if (playing) player.pause() else player.play() }, modifier = Modifier.size(30.dp)) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = accent, modifier = Modifier.size(19.dp)) }
+                        IconButton(onClick = { player.seekToNextMediaItem() }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.SkipNext, null, tint = fg, modifier = Modifier.size(17.dp)) }
+                        IconButton(onClick = {
+                            current?.let { song ->
+                                val key = song.id.toString()
+                                favorites = if (favorites.contains(key)) favorites - key else favorites + key
+                                prefs.edit().putStringSet("favorites", favorites).apply()
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                        }, modifier = Modifier.size(30.dp)) {
+                            Icon(if (current?.let { favorites.contains(it.id.toString()) } == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = accent, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
                 if (tab == "Search") Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .94f), panel.copy(alpha = .72f)))).border(1.dp, glassStroke, RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
