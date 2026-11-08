@@ -149,7 +149,8 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
         else -> Pink
     }
     val bg = if (lightMode) Color(0xFFF7F2F5) else Charcoal
-    val panel = if (lightMode) Color(0xFFFFFFFF) else Glass
+    val panel = if (lightMode) Color(0xDFFFFFFF) else Color(0xB8322935)
+    val glassStroke = if (lightMode) Color.White.copy(alpha = .88f) else Color.White.copy(alpha = .13f)
     val fg = if (lightMode) Color(0xFF211A20) else Color(0xFFF8F1F5)
     val muted = if (lightMode) Color(0xFF817680) else SoftText
     val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
@@ -205,9 +206,10 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
     }
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
-        Box(Modifier.fillMaxSize().background(bg)) {
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFF9EAF1) else Color(0xFF29202B), bg, if (lightMode) Color(0xFFF1E8F0) else Color(0xFF111015))))) {
             // Soft colour wash behind translucent surfaces for the frosted, iOS-inspired finish.
-            Box(Modifier.align(Alignment.TopEnd).padding(top = 50.dp, end = 10.dp).size(210.dp).clip(CircleShape).background(accent.copy(alpha = if (lightMode) .09f else .13f)).blur(65.dp))
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 50.dp, end = 10.dp).size(230.dp).clip(CircleShape).background(accent.copy(alpha = if (lightMode) .16f else .22f)).blur(70.dp))
+            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 150.dp, start = 0.dp).size(190.dp).clip(CircleShape).background(Color(0xFFB85D91).copy(alpha = if (lightMode) .12f else .16f)).blur(75.dp))
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -219,7 +221,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 }
                 Spacer(Modifier.height(17.dp))
                 Spacer(Modifier.height(5.dp))
-                if (tab == "Search") Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(panel).border(1.dp, Line.copy(alpha = .6f), RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (tab == "Search") Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .94f), panel.copy(alpha = .72f)))).border(1.dp, glassStroke, RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     BasicTextField(value = query, onValueChange = { query = it }, singleLine = true, modifier = Modifier.weight(1f),
@@ -256,7 +258,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         }
                         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(playlists) { name ->
-                                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(panel).clickable { selectedPlaylist = name }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .95f), panel.copy(alpha = .68f)))).border(1.dp, glassStroke, RoundedCornerShape(15.dp)).clickable { selectedPlaylist = name }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     current?.let { SongArtwork(it.albumId, accent, 42) }
                                     Spacer(Modifier.width(10.dp))
                                     Column(Modifier.weight(1f)) { Text(name, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp); Text("Personal playlist", color = muted, fontSize = 10.sp) }
@@ -264,7 +266,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                                 }
                             }
                             item {
-                                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(panel).clickable { selectedPlaylist = "__recent__" }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .95f), panel.copy(alpha = .68f)))).border(1.dp, glassStroke, RoundedCornerShape(15.dp)).clickable { selectedPlaylist = "__recent__" }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     ArtworkPlaceholder(accent, 42); Spacer(Modifier.width(10.dp))
                                     Column { Text("Recently played", color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp); Text("Your listening history", color = muted, fontSize = 10.sp) }
                                 }
@@ -284,8 +286,8 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         items(visible, key = { it.id }) { song ->
                             val active = current?.id == song.id
-                            Row(Modifier.fillMaxWidth().height(57.dp).clip(RoundedCornerShape(15.dp)).background(if (active) accent.copy(alpha = .13f) else panel)
-                                .border(if (active) 1.dp else .5.dp, if (active) accent.copy(alpha = .65f) else Line, RoundedCornerShape(15.dp))
+                            Row(Modifier.fillMaxWidth().height(57.dp).clip(RoundedCornerShape(15.dp)).background(if (active) accent.copy(alpha = .18f) else Brush.verticalGradient(listOf(panel.copy(alpha = .94f), panel.copy(alpha = .68f))))
+                                .border(if (active) 1.dp else .8.dp, if (active) accent.copy(alpha = .72f) else glassStroke, RoundedCornerShape(15.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
@@ -322,7 +324,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 }
                 AnimatedVisibility(visible = current != null) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp).height(62.dp).clip(RoundedCornerShape(18.dp))
-                        .background(panel).border(1.dp, accent.copy(alpha = .35f), RoundedCornerShape(18.dp))
+                        .background(Brush.verticalGradient(listOf(panel.copy(alpha = .96f), panel.copy(alpha = .72f)))).border(1.dp, glassStroke.copy(alpha = .9f), RoundedCornerShape(18.dp))
                         .clickable { showPlayer = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         ArtworkPlaceholder(accent, 42)
                         Spacer(Modifier.width(10.dp))
@@ -334,7 +336,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, null, tint = fg) }
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 5.dp).clip(RoundedCornerShape(22.dp)).background(panel).border(1.dp, accent.copy(alpha = .22f), RoundedCornerShape(22.dp)).padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 5.dp).clip(RoundedCornerShape(22.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .96f), panel.copy(alpha = .68f)))).border(1.dp, glassStroke, RoundedCornerShape(22.dp)).padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
                     listOf(Triple("Home", Icons.Default.Home, "Home"), Triple("Search", Icons.Default.Search, "Search"), Triple("Playlists", Icons.Default.QueueMusic, "Playlists"), Triple("Library", Icons.Default.LibraryMusic, "Library")).forEach { (name, icon, label) ->
                         val selected = tab == name
                         Column(Modifier.weight(1f).clickable {
