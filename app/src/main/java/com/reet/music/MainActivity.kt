@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -186,7 +187,11 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
 
     val source = when (tab) {
         "Favourites" -> songs.filter { favorites.contains(it.id.toString()) }
-        "Library" -> if (selectedPlaylist != null) songs.filter { prefs.getStringSet("playlist_" + selectedPlaylist, emptySet())?.contains(it.id.toString()) == true } else recent.mapNotNull { id -> songs.firstOrNull { it.id.toString() == id } }
+        "Library" -> when (selectedPlaylist) {
+            "__recent__" -> recent.mapNotNull { id -> songs.firstOrNull { it.id.toString() == id } }
+            null -> emptyList()
+            else -> songs.filter { prefs.getStringSet("playlist_" + selectedPlaylist, emptySet())?.contains(it.id.toString()) == true }
+        }
         else -> songs
     }
     val visible = remember(source, query, sort, ascending) {
@@ -355,16 +360,24 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
             dragHandle = { Box(Modifier.padding(vertical = 11.dp).size(38.dp, 4.dp).clip(CircleShape).background(muted)) }) {
             val song = current!!
             val art = rememberArtwork(song.albumId)
+            val dynamicAccent by produceState(initialValue = accent, key1 = art, key2 = accent) {
+                value = withContext(Dispatchers.Default) {
+                    try { art?.let { Palette.from(it).generate().vibrantSwatch?.rgb?.let { rgb -> Color(rgb) } } ?: accent }
+                    catch (_: Exception) { accent }
+                }
+            }
+            val artMotion = rememberInfiniteTransition(label = "artMotion")
+            val artScale by artMotion.animateFloat(1f, 1.035f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "artScale")
             Column(Modifier.fillMaxWidth().fillMaxHeight(.91f).padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("NOW PLAYING", color = accent, fontSize = 9.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("NOW PLAYING", color = dynamicAccent, fontSize = 9.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     IconButton(onClick = { showPlayer = false }) { Icon(Icons.Default.KeyboardArrowDown, null, tint = fg) }
                     IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.QueueMusic, null, tint = fg) }
                 }
                 Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(26.dp)), contentAlignment = Alignment.Center) {
                     if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null, modifier = Modifier.fillMaxSize().blur(38.dp))
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(accent.copy(alpha = .40f), bg.copy(alpha = .92f)))))
-                    if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null, modifier = Modifier.fillMaxWidth(.72f).aspectRatio(1f).clip(RoundedCornerShape(24.dp)))
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(dynamicAccent.copy(alpha = .44f), bg.copy(alpha = .92f)))))
+                    if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null, modifier = Modifier.fillMaxWidth(.72f).aspectRatio(1f).graphicsLayer { scaleX = artScale; scaleY = artScale }.clip(RoundedCornerShape(24.dp)))
                     else ArtworkPlaceholder(accent, 190)
                     Text("REET", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, letterSpacing = 5.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
                 }
@@ -373,13 +386,13 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 Text(song.artist + " · " + song.album, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
                 Spacer(Modifier.height(12.dp))
                 Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f, onValueChange = { position = it.toLong() }, onValueChangeFinished = { player.seekTo(position) },
-                    valueRange = 0f..duration.coerceAtLeast(1L).toFloat(), colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent, inactiveTrackColor = Line))
+                    valueRange = 0f..duration.coerceAtLeast(1L).toFloat(), colors = SliderDefaults.colors(thumbColor = dynamicAccent, activeTrackColor = dynamicAccent, inactiveTrackColor = Line))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(formatTime(position), color = muted, fontSize = 9.sp); Text(formatTime(duration), color = muted, fontSize = 9.sp) }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, null, tint = if (player.shuffleModeEnabled) accent else muted) }
                     IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, null, tint = fg, modifier = Modifier.size(31.dp)) }
-                    Box(Modifier.size(62.dp).clip(CircleShape).background(accent).clickable { if (playing) player.pause() else player.play() }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(62.dp).clip(CircleShape).background(dynamicAccent).clickable { if (playing) player.pause() else player.play() }, contentAlignment = Alignment.Center) {
                         Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(33.dp))
                     }
                     IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, null, tint = fg, modifier = Modifier.size(31.dp)) }
@@ -389,7 +402,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    PlayerTool(Icons.Default.Lyrics, "Lyrics") { utility = "lyrics" }
+                    PlayerTool(Icons.Default.Description, "Lyrics") { utility = "lyrics" }
                     PlayerTool(Icons.Default.GraphicEq, "Visualizer") { utility = "equalizer" }
                     PlayerTool(Icons.Default.QueueMusic, "Queue") { utility = "queue" }
                     PlayerTool(Icons.Default.PlaylistAdd, "Add to") { utility = "add" }
