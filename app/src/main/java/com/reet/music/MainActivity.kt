@@ -47,7 +47,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -225,7 +224,7 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
     }
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
-      CompositionLocalProvider(LocalIndication provides rememberRipple(color = Color.White.copy(alpha = .48f))) {
+      CompositionLocalProvider(LocalIndication provides ripple(color = Color.White.copy(alpha = .48f))) {
         Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFEAF8FF) else Color(0xFF17242D), bg, if (lightMode) Color(0xFFF5EFFF) else Color(0xFF101820))))) {
             // Water-glass atmosphere with soft cyan and violet light blooms.
             Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background(WaterTint.copy(alpha = if (lightMode) .32f else .20f)).blur(78.dp))
