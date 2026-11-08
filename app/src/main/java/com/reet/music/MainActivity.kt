@@ -434,9 +434,12 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
             val artScale by artMotion.animateFloat(1f, 1.035f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "artScale")
             Column(Modifier.fillMaxWidth().fillMaxHeight(.91f).padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("NOW PLAYING", color = dynamicAccent, fontSize = 9.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Playing from", color = muted, fontSize = 10.sp)
+                        Text("My Songs", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                     IconButton(onClick = { showPlayer = false }) { Icon(Icons.Default.KeyboardArrowDown, null, tint = fg) }
-                    IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.QueueMusic, null, tint = fg) }
+                    IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.MoreVert, null, tint = fg) }
                 }
                 Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(26.dp)), contentAlignment = Alignment.Center) {
                     if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null, modifier = Modifier.fillMaxSize().blur(38.dp))
@@ -466,9 +469,9 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    PlayerTool(Icons.Default.Description, "Lyrics") { utility = "lyrics" }
-                    PlayerTool(Icons.Default.GraphicEq, "Visualizer") { utility = "equalizer" }
                     PlayerTool(Icons.Default.QueueMusic, "Queue") { utility = "queue" }
+                    PlayerTool(Icons.Default.Description, "Lyrics") { utility = "lyrics" }
+                    PlayerTool(Icons.Default.GraphicEq, "Equalizer") { utility = "equalizer" }
                     PlayerTool(Icons.Default.PlaylistAdd, "Add to") { utility = "add" }
                 }
                 Spacer(Modifier.height(20.dp))
@@ -484,20 +487,37 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
             title = { Text(when(utility) { "lyrics" -> "Lyrics"; "queue" -> "Play queue"; "add" -> "Add to playlist"; else -> "Equalizer visualizer" }, color = fg) },
             text = {
                 when {
-                    isLyrics -> Column {
-                        if (lyrics.isBlank()) Text("No saved lyrics yet. You can add lyrics manually for offline access.", color = muted, fontSize = 11.sp)
-                        else Text(lyrics, color = fg, fontSize = 12.sp)
-                        Spacer(Modifier.height(8.dp))
+                    isLyrics -> Column(Modifier.heightIn(max = 400.dp)) {
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Glass), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            Text("Lyrics", color = Color.White, modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(accent).padding(horizontal = 22.dp, vertical = 9.dp))
+                            Text("Details", color = muted, modifier = Modifier.padding(horizontal = 22.dp, vertical = 9.dp))
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text(current?.title.orEmpty(), color = fg, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(current?.artist.orEmpty(), color = muted, fontSize = 10.sp)
+                        Spacer(Modifier.height(18.dp))
+                        if (lyrics.isBlank()) Text("No saved lyrics yet. Add lyrics for offline access.", color = muted, fontSize = 12.sp)
+                        else Text(lyrics, color = fg, fontSize = 14.sp, lineHeight = 24.sp)
+                        Spacer(Modifier.height(12.dp))
                         Text("Edit lyrics", color = accent, modifier = Modifier.clickable { lyricsEdit = true })
                     }
-                    isQueue -> LazyColumn(Modifier.heightIn(max = 300.dp)) {
-                        items(songs) { s -> Row(Modifier.fillMaxWidth().clickable {
+                    isQueue -> LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        item { Text("NOW PLAYING", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                        item { current?.let { s -> Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            SongArtwork(s.albumId, accent, 42); Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text(s.title, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold); Text(s.artist, color = muted, fontSize = 9.sp) }
+                            Icon(Icons.Default.GraphicEq, null, tint = accent)
+                        } } }
+                        item { Text("UP NEXT", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 5.dp)) }
+                        items(songs.filterNot { it.id == current?.id }) { s -> Row(Modifier.fillMaxWidth().clickable {
                             val index = songs.indexOf(s); current = s
                             player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).build() }, index, 0L)
                             player.prepare(); player.play(); utility = ""
-                        }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(s.title, color = if (s.id == current?.id) accent else fg, fontSize = 11.sp, modifier = Modifier.weight(1f), maxLines = 1)
-                            Text(s.artist, color = muted, fontSize = 9.sp, maxLines = 1)
+                        }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DragHandle, null, tint = muted, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(7.dp)); SongArtwork(s.albumId, accent, 36); Spacer(Modifier.width(9.dp))
+                            Column(Modifier.weight(1f)) { Text(s.title, color = fg, fontSize = 11.sp, maxLines = 1); Text(s.artist, color = muted, fontSize = 9.sp, maxLines = 1) }
+                            Text(formatTime(s.duration), color = muted, fontSize = 9.sp)
                         } }
                     }
                     isAdd -> Column {
@@ -510,9 +530,13 @@ private fun ReetApp(player: ExoPlayer, loadSongs: () -> List<Song>) {
                         }
                     }
                     else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Live visualizer", color = muted, fontSize = 11.sp)
+                        Text("Custom     Bass     Pop     Rock     Vocal", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(14.dp))
                         EqualizerBars(accent, Modifier.fillMaxWidth().height(90.dp))
-                        Text("Animated visualizer preview", color = muted, fontSize = 9.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Text("60 Hz       230 Hz      910 Hz      3.6 kHz      14 kHz", color = muted, fontSize = 8.sp)
+                        Text("Animated equalizer visualizer", color = muted, fontSize = 9.sp)
+                        Text("Audio effects are a visual preview; DSP is not connected.", color = muted, fontSize = 9.sp, textAlign = TextAlign.Center)
                     }
                 }
             },
