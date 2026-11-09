@@ -75,8 +75,6 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             if (artwork != null) views.setImageViewBitmap(R.id.widget_art, artwork)
             else views.setImageViewResource(R.id.widget_art, R.drawable.ic_reet_launcher)
 
-            val wallpaper = loadWallpaper(context, prefs)
-            if (wallpaper != null) views.setImageViewBitmap(R.id.widget_background, wallpaper)
 
             val options = manager.getAppWidgetOptions(id)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180)
@@ -124,24 +122,10 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
 
         private fun loadArtwork(context: Context, uriString: String?): Bitmap? {
             if (uriString.isNullOrBlank()) return null
-            return try { decodeScaled({ context.contentResolver.openInputStream(Uri.parse(uriString)) ?: throw FileNotFoundException() }, 96) }
+            return try { decodeScaled({ context.contentResolver.openInputStream(Uri.parse(uriString)) ?: throw FileNotFoundException() }, 64) }
             catch (_: Exception) { null }
         }
 
-        private fun loadWallpaper(context: Context, prefs: android.content.SharedPreferences): Bitmap? {
-            return try {
-                val names = context.assets.list("backgrounds")?.filter { it.endsWith(".jpg", true) || it.endsWith(".png", true) || it.endsWith(".webp", true) }.orEmpty()
-                if (names.isEmpty()) return null
-                val selected = if (prefs.getBoolean("widget_wallpaper_auto", true)) {
-                    val old = prefs.getInt("widget_wallpaper_index", 0)
-                    val next = (old + 1) % names.size
-                    prefs.edit().putInt("widget_wallpaper_index", next).apply()
-                    names[next]
-                } else prefs.getString("widget_wallpaper", names.first())?.takeIf { it in names } ?: names.first()
-                decodeScaled({ context.assets.open("backgrounds/$selected") }, 240)
-            } catch (_: Exception) { null }
-        }
-    }
 }
 
 class WidgetActionReceiver : android.content.BroadcastReceiver() {
