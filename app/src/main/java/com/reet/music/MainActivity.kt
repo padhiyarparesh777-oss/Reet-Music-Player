@@ -203,6 +203,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var playlistDialog by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("") }
     var showPlayer by remember { mutableStateOf(false) }
+    var showSleepTimer by remember { mutableStateOf(false) }
+    var sleepTimerSeconds by remember { mutableLongStateOf(0L) }
     var utility by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
@@ -326,6 +328,13 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     }
     LaunchedEffect(player) {
         while (true) { position = player.currentPosition.coerceAtLeast(0L); duration = player.duration.takeIf { it > 0 } ?: 0L; delay(350) }
+    }
+    LaunchedEffect(sleepTimerSeconds) {
+        if (sleepTimerSeconds > 0L) {
+            delay(1_000L)
+            sleepTimerSeconds = (sleepTimerSeconds - 1L).coerceAtLeast(0L)
+            if (sleepTimerSeconds == 0L) player.pause()
+        }
     }
     LaunchedEffect(current?.id) {
         val id = current?.id?.toString() ?: return@LaunchedEffect
@@ -705,6 +714,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         PlayerTool(Icons.Default.Description, "Lyrics", dynamicAccent, fg) { utility = "lyrics" }
                         PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent, fg) { utility = ""; showSettings = true }
                         PlayerTool(Icons.Default.PlaylistAdd, "Add to", dynamicAccent, fg) { utility = "add" }
+                        PlayerTool(Icons.Default.Bedtime, if (sleepTimerSeconds > 0L) "${sleepTimerSeconds / 60}m left" else "Sleep", dynamicAccent, fg) { showSleepTimer = true }
                     }
                     Spacer(Modifier.height(5.dp))
                     }
@@ -797,6 +807,27 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 }
             },
             confirmButton = { TextButton(onClick = { utility = "" }) { Text("Close", color = accent) } })
+    }
+    if (showSleepTimer) {
+        AlertDialog(
+            onDismissRequest = { showSleepTimer = false },
+            containerColor = panel,
+            title = { Text("Sleep timer", color = fg) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (sleepTimerSeconds > 0L) "Timer active: ${sleepTimerSeconds / 60} min ${sleepTimerSeconds % 60} sec" else "Pause playback automatically after:", color = muted, fontSize = 12.sp)
+                    listOf(15, 30, 45, 60, 90).forEach { minutes ->
+                        Text("${minutes} minutes", color = fg, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                            .clickable { sleepTimerSeconds = minutes * 60L; showSleepTimer = false }
+                            .padding(vertical = 9.dp, horizontal = 10.dp))
+                    }
+                    if (sleepTimerSeconds > 0L) Text("Cancel timer", color = accent, modifier = Modifier.clickable {
+                        sleepTimerSeconds = 0L; showSleepTimer = false
+                    }.padding(vertical = 8.dp))
+                }
+            },
+            confirmButton = { TextButton(onClick = { showSleepTimer = false }) { Text("Close", color = accent) } }
+        )
     }
     if (lyricsEdit && current != null) {
         var draft by remember(current?.id) { mutableStateOf(lyrics) }
