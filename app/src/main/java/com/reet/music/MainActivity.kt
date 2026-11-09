@@ -1038,16 +1038,14 @@ private fun VerticalEqualizerBand(
     modifier: Modifier = Modifier,
     onValueChange: (Float) -> Unit
 ) {
-    var heightPx by remember { mutableFloatStateOf(1f) }
     val fraction = ((value - min) / (max - min).coerceAtLeast(.001f)).coerceIn(0f, 1f)
-    Canvas(modifier.pointerInput(min, max, heightPx) {
+    Canvas(modifier.pointerInput(min, max) {
         detectDragGestures { change, _ ->
             change.consume()
             val next = (1f - (change.position.y / size.height).coerceIn(0f, 1f))
             onValueChange(min + (max - min) * next)
         }
     }) {
-        heightPx = size.height
         val x = size.width / 2f
         val top = 10.dp.toPx()
         val bottom = size.height - 10.dp.toPx()
