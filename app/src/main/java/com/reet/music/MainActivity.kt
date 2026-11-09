@@ -87,13 +87,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-private val Pink = Color(0xFFF28CB0)
-private val Charcoal = Color(0xFF171419)
-private val Deep = Color(0xFF100E12)
-private val SoftText = Color(0xFFAAA2AA)
-private val Glass = Color(0xFF252128)
-private val Line = Color(0xFF403640)
-private val WaterTint = Color(0xFFFFD7E5)
+private val Pink = Color(0xFFFF8DBB)
+private val Charcoal = Color(0xFF090A10)
+private val Deep = Color(0xFF06070C)
+private val SoftText = Color(0xFFA5A7B5)
+private val Glass = Color(0xFF171A25)
+private val Line = Color(0x40FFFFFF)
+private val WaterTint = Color(0xFF8D7BFF)
 
 private data class Song(
     val id: Long, val title: String, val artist: String, val album: String,
@@ -192,7 +192,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var sort by remember { mutableStateOf(prefs.getString("sort", "Name") ?: "Name") }
     var ascending by remember { mutableStateOf(true) }
     var showSortOptions by remember { mutableStateOf(false) }
-    var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", true)) }
+    var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", false)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
     var skipShortTracks by remember { mutableStateOf(prefs.getBoolean("skip_under_60s", false)) }
     var lyrics by remember { mutableStateOf("") }
@@ -208,10 +208,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         "Gold" -> Color(0xFFE8C16C)
         else -> Pink
     }
-    val bg = if (lightMode) Color(0xFFFFF6FA) else Charcoal
-    val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0x702B3440)
-    val glassStroke = if (lightMode) Color.White.copy(alpha = .96f) else Color.White.copy(alpha = .30f)
-    val fg = if (lightMode) Color(0xFF211A20) else Color(0xFFF8F1F5)
+    val bg = if (lightMode) Color(0xFFFFF7FB) else Charcoal
+    val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0xB8171B28)
+    val glassStroke = if (lightMode) Color.White.copy(alpha = .96f) else Color.White.copy(alpha = .22f)
+    val fg = if (lightMode) Color(0xFF211A20) else Color(0xFFF5F4FA)
     val muted = if (lightMode) Color(0xFF817680) else SoftText
     val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
     fun scan() { songs = loadSongs() }
@@ -271,10 +271,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
       CompositionLocalProvider(LocalIndication provides ripple(color = Color.White.copy(alpha = .48f))) {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else Color(0xFF17242D), bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF101820))))) {
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else Color(0xFF17132A), bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF10131E))))) {
             // Water-glass atmosphere with soft cyan and violet light blooms.
-            Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background(WaterTint.copy(alpha = if (lightMode) .32f else .20f)).blur(78.dp))
-            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background(Color(0xFFFFC9DC).copy(alpha = if (lightMode) .30f else .18f)).blur(82.dp))
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background(WaterTint.copy(alpha = if (lightMode) .32f else .24f)).blur(78.dp))
+            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background(Color(0xFF4B3D83).copy(alpha = if (lightMode) .30f else .22f)).blur(82.dp))
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
