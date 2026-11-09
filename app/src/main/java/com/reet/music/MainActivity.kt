@@ -566,12 +566,13 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
                     else -> null
                 }
-                if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper)
-                else if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
+                if (!lightMode && playerWallpaper != null) {
+                    Box(Modifier.fillMaxSize().blur(24.dp)) { ReetWallpaper(playerWallpaper) }
+                } else if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
                     modifier = Modifier.fillMaxSize().blur(64.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
                     Color.Black.copy(alpha = .48f), bg.copy(alpha = .56f), Color.Black.copy(alpha = .52f)
-                ))).blur(18.dp))
+                ))))
                 val cardShape = RoundedCornerShape(34.dp)
                 Column(
                     Modifier.fillMaxWidth(.88f).fillMaxHeight(.80f)
@@ -751,8 +752,9 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     }
     if (showSettings) {
         Dialog(onDismissRequest = { showSettings = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            val settingsVisibility = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
             AnimatedVisibility(
-                visible = showSettings,
+                visibleState = settingsVisibility,
                 enter = androidx.compose.animation.slideInVertically(initialOffsetY = { -it }, animationSpec = tween(360)) + androidx.compose.animation.fadeIn(tween(260)),
                 exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(240)) + androidx.compose.animation.fadeOut(tween(180))
             ) {
