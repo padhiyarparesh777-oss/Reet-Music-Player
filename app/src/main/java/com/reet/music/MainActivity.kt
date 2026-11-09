@@ -218,6 +218,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val bassBoost = remember(audioSessionId) { runCatching { if (audioSessionId > 0) BassBoost(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
     val virtualizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Virtualizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
     var bassLevel by remember { mutableFloatStateOf(prefs.getInt("eq_bass", 0).toFloat()) }
+    var trebleLevel by remember { mutableFloatStateOf(prefs.getInt("eq_treble", 0).toFloat()) }
     var virtualLevel by remember { mutableFloatStateOf(prefs.getInt("eq_virtual", 0).toFloat()) }
     var selectedEqPreset by remember { mutableStateOf(prefs.getString("eq_preset", "Custom") ?: "Custom") }
     var eqBandLevels by remember(audioSessionId) { mutableStateOf((0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { index -> runCatching { prefs.getFloat("eq_band_$index", (equalizer?.getBandLevel(index.toShort()) ?: 0).toFloat() / 100f) }.getOrDefault(0f) }) }
@@ -868,6 +869,23 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         }
                         Column {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Treble", color = fg, fontSize = 11.sp); Text("${trebleLevel.toInt() / 10}%", color = accent, fontSize = 11.sp)
+                            }
+                            Slider(value = trebleLevel, onValueChange = {
+                                trebleLevel = it; prefs.edit().putInt("eq_treble", it.toInt()).apply()
+                                runCatching {
+                                    val lastBand = (equalizer?.numberOfBands?.toInt() ?: 0) - 1
+                                    if (lastBand >= 0) {
+                                        val range = equalizer!!.bandLevelRange
+                                        val level = (range[0] + (range[1] - range[0]) * (it / 1000f)).toInt().toShort()
+                                        equalizer.setBandLevel(lastBand.toShort(), level)
+                                    }
+                                }
+                                selectedEqPreset = "Custom"
+                            }, valueRange = 0f..1000f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                        }
+                        Column {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("3D / Surround", color = fg, fontSize = 11.sp); Text("${virtualLevel.toInt() / 10}%", color = accent, fontSize = 11.sp)
                             }
                             Slider(value = virtualLevel, onValueChange = { virtualLevel = it; prefs.edit().putInt("eq_virtual", it.toInt()).apply() },
@@ -876,12 +894,30 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         Text("Reset equalizer", color = accent, fontSize = 11.sp, modifier = Modifier.clickable {
                             runCatching { equalizer?.usePreset(0) }
                             eqBandLevels = (0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { 0f }
-                            bassLevel = 0f; virtualLevel = 0f; selectedEqPreset = "Custom"
-                            prefs.edit().putInt("eq_bass", 0).putInt("eq_virtual", 0).putString("eq_preset", "Custom").apply()
+                            bassLevel = 0f; trebleLevel = 500f; virtualLevel = 0f; selectedEqPreset = "Custom"
+                            prefs.edit().putInt("eq_bass", 0).putInt("eq_treble", 500).putInt("eq_virtual", 0).putString("eq_preset", "Custom").apply()
                         })
                         Divider(color = glassStroke)
                         Text("HOME SCREEN MUSIC WIDGET", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                        Text("Choose how your Reet widget looks. Add it from your phone Home screen → Widgets → Reet Music.", color = muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        Text("Choose a widget size and pin it directly to your Home screen.", color = muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf("Compact", "Medium", "Large").forEach { mode ->
+                                Text("Add $mode", color = Color.White, fontSize = 10.sp,
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(accent)
+                                        .clickable {
+                                            val provider = when (mode) {
+                                                "Compact" -> ReetCompactWidgetProvider::class.java
+                                                "Large" -> ReetLargeWidgetProvider::class.java
+                                                else -> ReetMusicWidgetProvider::class.java
+                                            }
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                AppWidgetManager.getInstance(context).requestPinAppWidget(ComponentName(context, provider), null, null)
+                                            } else {
+                                                context.startActivity(Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                            }
+                                        }.padding(vertical = 10.dp), textAlign = TextAlign.Center)
+                            }
+                        }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             listOf("Compact", "Medium", "Large").forEach { mode ->
                                 Text(mode, color = if (widgetLayout == mode) Color.White else muted, fontSize = 10.sp,
