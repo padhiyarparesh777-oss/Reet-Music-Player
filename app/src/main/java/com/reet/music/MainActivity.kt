@@ -363,7 +363,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(27.dp))
                         Spacer(Modifier.width(8.dp))
                         Column {
-                            Text("Reet 🌍🫶🏻", color = fg, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-.5).sp)
+                            Text("Reet", color = fg, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-.5).sp)
                             Text("Music Player", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                         }
                     }
@@ -471,9 +471,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         items(visible, key = { it.id }) { song ->
                             val active = current?.id == song.id
-                            Row(Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(17.dp))
-                                .background(if (active) Brush.horizontalGradient(listOf(Color.White.copy(alpha = .20f), accent.copy(alpha = .13f), panel.copy(alpha = .30f))) else Brush.horizontalGradient(listOf(Color.White.copy(alpha = .055f), Color.Transparent)))
-                                .border(if (active) 1.dp else .6.dp, if (active) Color.White.copy(alpha = .48f) else glassStroke.copy(alpha = .35f), RoundedCornerShape(17.dp))
+                            Row(Modifier.fillMaxWidth().height(58.dp)
+                                .background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
