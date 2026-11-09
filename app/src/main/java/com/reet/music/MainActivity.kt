@@ -677,6 +677,15 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Spacer(Modifier.height(7.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (player.shuffleModeEnabled) dynamicAccent else muted) }
+                        IconButton(onClick = {
+                            player.repeatMode = when (player.repeatMode) {
+                                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                                else -> Player.REPEAT_MODE_OFF
+                            }
+                        }) {
+                            Icon(Icons.Default.Repeat, "Repeat", tint = if (player.repeatMode == Player.REPEAT_MODE_OFF) muted else dynamicAccent)
+                        }
                         IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = fg, modifier = Modifier.size(30.dp)) }
                         Box(Modifier.size(66.dp).shadow(12.dp, CircleShape).clip(CircleShape)
                             .background(Brush.linearGradient(listOf(dynamicAccent.copy(alpha = .95f), dynamicAccent.copy(alpha = .62f))))
@@ -726,24 +735,31 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         Spacer(Modifier.height(12.dp))
                         Text("Edit lyrics", color = accent, modifier = Modifier.clickable { lyricsEdit = true })
                     }
-                    isQueue -> LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                        item { Text("NOW PLAYING", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
-                        item { current?.let { s -> Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            SongArtwork(s.albumId, accent, 42); Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) { Text(s.title, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold); Text(s.artist, color = muted, fontSize = 9.sp) }
-                            Icon(Icons.Default.GraphicEq, null, tint = accent)
-                        } } }
-                        item { Text("UP NEXT", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 5.dp)) }
-                        items(songs.filterNot { it.id == current?.id }) { s -> Row(Modifier.fillMaxWidth().clickable {
-                            val index = songs.indexOf(s); current = s
-                            player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index, 0L)
-                            player.prepare(); player.play(); utility = ""
-                        }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.DragHandle, null, tint = muted, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(7.dp)); SongArtwork(s.albumId, accent, 36); Spacer(Modifier.width(9.dp))
-                            Column(Modifier.weight(1f)) { Text(s.title, color = fg, fontSize = 11.sp, maxLines = 1); Text(s.artist, color = muted, fontSize = 9.sp, maxLines = 1) }
-                            Text(formatTime(s.duration), color = muted, fontSize = 9.sp)
-                        } }
+                    isQueue -> {
+                        val queuedSongs = (0 until player.mediaItemCount).mapNotNull { index ->
+                            val id = player.getMediaItemAt(index).mediaId
+                            songs.firstOrNull { it.id.toString() == id }
+                        }
+                        LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                            item { Text("NOW PLAYING · ${player.currentMediaItemIndex + 1}/${player.mediaItemCount}", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                            items(queuedSongs, key = { it.id }) { queued ->
+                                val active = queued.id.toString() == player.currentMediaItem?.mediaId
+                                Row(Modifier.fillMaxWidth().background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
+                                    .clickable {
+                                        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == queued.id.toString() } ?: -1
+                                        if (index >= 0) { player.seekTo(index, 0L); player.play(); utility = "" }
+                                    }.padding(vertical = 7.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(if (active) "▶" else "${queuedSongs.indexOf(queued) + 1}", color = if (active) accent else muted, fontSize = 10.sp, modifier = Modifier.width(24.dp))
+                                    SongArtwork(queued.albumId, accent, 36); Spacer(Modifier.width(9.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(queued.title, color = if (active) accent else fg, fontSize = 11.sp, maxLines = 1)
+                                        Text(queued.artist, color = muted, fontSize = 9.sp, maxLines = 1)
+                                    }
+                                    Text(formatTime(queued.duration), color = muted, fontSize = 9.sp)
+                                }
+                            }
+                            if (queuedSongs.isEmpty()) item { Text("Queue is empty. Play a song to get started.", color = muted, fontSize = 11.sp) }
+                        }
                     }
                     isAdd -> Column {
                         if (playlists.isEmpty()) Text("Create a playlist first from Library.", color = muted, fontSize = 11.sp)
