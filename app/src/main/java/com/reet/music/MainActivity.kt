@@ -672,14 +672,29 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             }.padding(vertical = 8.dp))
                         }
                     }
+                    utility == "about" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(42.dp).align(Alignment.CenterHorizontally))
+                        Text("REET Music Player", color = fg, fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Text("Version 1.0", color = accent, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Text("An offline music player for your own music library. Play local songs, create playlists and save favourites without streaming.", color = muted, fontSize = 11.sp, textAlign = TextAlign.Center)
+                        Text("Made with love for music lovers.", color = fg, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+                    }
                     else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Custom     Bass     Pop     Rock     Vocal", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(14.dp))
+                        Text("Equalizer", color = fg, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Spacer(Modifier.height(12.dp))
                         EqualizerBars(accent, Modifier.fillMaxWidth().height(90.dp))
-                        Spacer(Modifier.height(10.dp))
-                        Text("60 Hz       230 Hz      910 Hz      3.6 kHz      14 kHz", color = muted, fontSize = 8.sp)
-                        Text("Animated equalizer visualizer", color = muted, fontSize = 9.sp)
-                        Text("Audio effects are a visual preview; DSP is not connected.", color = muted, fontSize = 9.sp, textAlign = TextAlign.Center)
+                        Text("Open your phone's audio equalizer to adjust bass, treble and sound effects.", color = muted, fontSize = 10.sp, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(onClick = {
+                            val sessionId = (player as? androidx.media3.exoplayer.ExoPlayer)?.audioSessionId ?: 0
+                            val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
+                                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
+                                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
+                                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+                            }
+                            try { context.startActivity(intent) }
+                            catch (_: Exception) { android.widget.Toast.makeText(context, "No system equalizer found on this device.", android.widget.Toast.LENGTH_SHORT).show() }
+                        }) { Text("Open Device Equalizer", color = accent) }
                     }
                 }
             },
@@ -714,14 +729,14 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     }
     if (showSettings) {
         AlertDialog(onDismissRequest = { showSettings = false }, containerColor = panel,
-            title = { Text("Personalize REET", color = fg) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Appearance", color = muted, fontSize = 11.sp)
+            title = { Text("Settings", color = fg, fontWeight = FontWeight.Bold) },
+            text = { Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("THEME", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (lightMode) "Light theme" else "Dark theme", color = fg, modifier = Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) { Text("Appearance", color = fg, fontSize = 12.sp); Text("Choose light or dark mode", color = muted, fontSize = 9.sp) }
                     Switch(checked = lightMode, onCheckedChange = { lightMode = it; prefs.edit().putBoolean("light_mode", it).apply() })
                 }
-                Text("Accent colour", color = muted, fontSize = 11.sp)
+                Text("Accent colour", color = muted, fontSize = 10.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     listOf("Pink" to Pink, "Purple" to Color(0xFFB99AFF), "Blue" to Color(0xFF76BFFF), "Red" to Color(0xFFFF6474), "Mint" to Color(0xFF65DDB5), "Gold" to Color(0xFFE8C16C)).forEach { (name, color) ->
                         Box(Modifier.size(29.dp).clip(CircleShape).background(color).border(if (accentName == name) 3.dp else 0.dp, fg, CircleShape).clickable {
@@ -730,30 +745,35 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                 }
                 Divider(color = glassStroke)
-                Text("Audio & Playback", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("AUDIO & PLAYBACK", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text("Skip tracks under 60 seconds", color = fg, fontSize = 11.sp); Text("Automatically skip short audio clips during playback", color = muted, fontSize = 9.sp) }
+                    Switch(checked = skipShortTracks, onCheckedChange = { skipShortTracks = it; prefs.edit().putBoolean("skip_under_60s", it).apply() })
+                }
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("Equalizer & Effects", color = fg, fontSize = 11.sp); Text("Visualizer and sound presets", color = muted, fontSize = 9.sp) }
-                    Icon(Icons.Default.ChevronRight, null, tint = muted)
-                }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "queue" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.QueueMusic, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("Playback Queue", color = fg, fontSize = 11.sp); Text("View your songs", color = muted, fontSize = 9.sp) }
+                    Column(Modifier.weight(1f)) { Text("Equalizer", color = fg, fontSize = 11.sp); Text("Open device sound effects and EQ", color = muted, fontSize = 9.sp) }
                     Icon(Icons.Default.ChevronRight, null, tint = muted)
                 }
                 Divider(color = glassStroke)
-                Text("Library", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) { Text("Scan Music Library", color = fg, fontSize = 11.sp); Text("Refresh offline songs", color = muted, fontSize = 9.sp) }
                     Icon(Icons.Default.ChevronRight, null, tint = muted)
                 }
-                Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 11.sp)
-                Text("Tap the sort label on the library screen to change sorting.", color = muted, fontSize = 10.sp)
-                Text("Offline mode · No streaming or account required.", color = muted, fontSize = 10.sp)
+                Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 10.sp)
+                Divider(color = glassStroke)
+                Text("ABOUT", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "about" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null, tint = accent); Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) { Text("About Reet Music", color = fg, fontSize = 11.sp); Text("App information and version", color = muted, fontSize = 9.sp) }
+                    Icon(Icons.Default.ChevronRight, null, tint = muted)
+                }
+                Text("Offline mode · No streaming or account required.", color = muted, fontSize = 9.sp)
             } },
             confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Done", color = accent) } })
-    }
+    }}
 }
 
 @Composable
