@@ -1195,14 +1195,14 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                     .clickable { accentName = name; prefs.edit().putString("accent", name).apply() })
                             }
                         }
-                        Divider(color = glassStroke)
+                        HorizontalDivider(color = glassStroke)
                         Text("PLAYLIST FILES", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Text("Import or export standard M3U playlists for songs already in your device library.", color = muted, fontSize = 10.sp)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("Import M3U", color = fg, fontSize = 11.sp, modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(panel).clickable { importM3uLauncher.launch(arrayOf("audio/x-mpegurl", "audio/mpegurl", "text/plain", "application/octet-stream")) }.padding(13.dp), textAlign = TextAlign.Center)
                             Text("Export M3U", color = fg, fontSize = 11.sp, modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(panel).clickable { exportM3uLauncher.launch("Reet-Playlist.m3u") }.padding(13.dp), textAlign = TextAlign.Center)
                         }
-                        Divider(color = glassStroke)
+                        HorizontalDivider(color = glassStroke)
                         Text("AUDIO & PLAYBACK", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) { Text("Skip tracks under 60 seconds", color = fg, fontSize = 12.sp); Text("Automatically skip short audio clips", color = muted, fontSize = 10.sp) }
@@ -1213,7 +1213,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             Column(Modifier.weight(1f)) { Text("Equalizer", color = fg, fontSize = 12.sp); Text("Open device sound effects and EQ", color = muted, fontSize = 10.sp) }
                             Icon(Icons.Default.ChevronRight, null, tint = muted)
                         }
-                        Divider(color = glassStroke)
+                        HorizontalDivider(color = glassStroke)
                         Text("EQUALIZER · BASS · TREBLE", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Text("Audio effects apply to the active music session.", color = muted, fontSize = 10.sp)
                         if (equalizer != null) {
@@ -1296,7 +1296,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             bassLevel = 0f; trebleLevel = 500f; virtualLevel = 0f; selectedEqPreset = "Custom"
                             prefs.edit().putInt("eq_bass", 0).putInt("eq_treble", 500).putInt("eq_virtual", 0).putString("eq_preset", "Custom").apply()
                         })
-                        Divider(color = glassStroke)
+                        HorizontalDivider(color = glassStroke)
                         Text("HOME SCREEN MUSIC WIDGET", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Text("Live previews show how each size will look on your Home screen.", color = muted, fontSize = 10.sp, lineHeight = 15.sp)
                         listOf("Compact", "Medium", "Large").forEach { mode ->
@@ -1387,7 +1387,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         } else if (widgetAutoWallpaper) {
                             Text("31 bundled Marvel-style backgrounds rotate with your songs.", color = muted, fontSize = 10.sp)
                         }
-                        Divider(color = glassStroke)
+                        HorizontalDivider(color = glassStroke)
                         Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(10.dp))
@@ -1395,7 +1395,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             Icon(Icons.Default.ChevronRight, null, tint = muted)
                         }
                         Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 11.sp)
-                        Divider(color = glassStroke)
+                        HorizontalDivider(color = glassStroke)
                         Text("ABOUT", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "about" }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Info, null, tint = accent); Spacer(Modifier.width(10.dp))
