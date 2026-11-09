@@ -138,7 +138,14 @@ class MusicPlaybackService : MediaLibraryService() {
             mediaId: String
         ): ListenableFuture<LibraryResult<MediaItem>> {
             val id = mediaId.toLongOrNull()
-            val item = if (id == null) null else querySongs("${MediaStore.Audio.Media._ID} = ?", arrayOf(id.toString())).firstOrNull()
+            val item = when {
+                mediaId == ROOT_ID -> folder(ROOT_ID, "Reet Music")
+                mediaId == SONGS_ID -> folder(SONGS_ID, "All Songs", MediaMetadata.FOLDER_TYPE_TITLES)
+                mediaId == ALBUMS_ID -> folder(ALBUMS_ID, "Albums", MediaMetadata.FOLDER_TYPE_ALBUMS)
+                mediaId.startsWith("album:") -> folder(mediaId, "Album")
+                id != null -> querySongs("${MediaStore.Audio.Media._ID} = ?", arrayOf(id.toString())).firstOrNull()
+                else -> null
+            }
             return if (item != null) Futures.immediateFuture(LibraryResult.ofItem(item, null))
             else Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE, null))
         }
