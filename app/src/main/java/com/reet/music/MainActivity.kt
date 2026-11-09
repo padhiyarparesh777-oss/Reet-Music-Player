@@ -334,6 +334,60 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         permission = it
         if (it) scan()
     }
+    val exportM3uLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
+        if (uri != null) {
+            runCatching {
+                val content = buildString {
+                    append("#EXTM3U\n")
+                    songs.forEach { song ->
+                        append("#EXTINF:")
+                        append(song.duration / 1000L)
+                        append(",")
+                        append(song.title.replace("\n", " "))
+                        append(" - ")
+                        append(song.artist.replace("\n", " "))
+                        append("\n")
+                        append(song.uri.toString())
+                        append("\n")
+                    }
+                }
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(content) }
+            }
+        }
+    }
+    val importM3uLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                val lines = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readLines() }.orEmpty()
+                val imported = mutableListOf<Song>()
+                var pendingTitle: String? = null
+                lines.filter { it.isNotBlank() }.forEach { line ->
+                    when {
+                        line.startsWith("#EXTINF:", true) -> pendingTitle = line.substringAfter(",", "").substringBefore(" - ").trim()
+                        line.startsWith("#") -> Unit
+                        else -> {
+                            val exact = songs.firstOrNull { it.uri.toString() == line.trim() }
+                            val fileName = line.substringAfterLast('/').substringBeforeLast('.').trim()
+                            val title = pendingTitle?.takeIf { it.isNotBlank() } ?: fileName
+                            val match = exact ?: songs.firstOrNull { it.title.equals(title, true) }
+                            if (match != null && imported.none { it.id == match.id }) imported += match
+                            pendingTitle = null
+                        }
+                    }
+                }
+                if (imported.isNotEmpty()) {
+                    player.setMediaItems(imported.map { song ->
+                        MediaItem.Builder().setUri(song.uri).setMediaId(song.id.toString())
+                            .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist).setAlbumTitle(song.album).build()).build()
+                    })
+                    player.prepare()
+                    player.play()
+                    current = imported.first()
+                    showPlayer = true
+                }
+            }
+        }
+    }
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -983,6 +1037,13 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                 Box(Modifier.size(31.dp).clip(CircleShape).background(color).border(if (accentName == name) 3.dp else 0.dp, fg, CircleShape)
                                     .clickable { accentName = name; prefs.edit().putString("accent", name).apply() })
                             }
+                        }
+                        Divider(color = glassStroke)
+                        Text("PLAYLIST FILES", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Text("Import or export standard M3U playlists for songs already in your device library.", color = muted, fontSize = 10.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Import M3U", color = fg, fontSize = 11.sp, modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(panel).clickable { importM3uLauncher.launch(arrayOf("audio/x-mpegurl", "audio/mpegurl", "text/plain", "application/octet-stream")) }.padding(13.dp), textAlign = TextAlign.Center)
+                            Text("Export M3U", color = fg, fontSize = 11.sp, modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(panel).clickable { exportM3uLauncher.launch("Reet-Playlist.m3u") }.padding(13.dp), textAlign = TextAlign.Center)
                         }
                         Divider(color = glassStroke)
                         Text("AUDIO & PLAYBACK", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
