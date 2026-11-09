@@ -142,7 +142,7 @@ class MusicPlaybackService : MediaLibraryService() {
                 mediaId == ROOT_ID -> folder(ROOT_ID, "Reet Music")
                 mediaId == SONGS_ID -> folder(SONGS_ID, "All Songs", MediaMetadata.FOLDER_TYPE_TITLES)
                 mediaId == ALBUMS_ID -> folder(ALBUMS_ID, "Albums", MediaMetadata.FOLDER_TYPE_ALBUMS)
-                mediaId.startsWith("album:") -> folder(mediaId, "Album")
+                mediaId.startsWith("album:") -> queryAlbums().firstOrNull { it.mediaId == mediaId }
                 id != null -> querySongs("${MediaStore.Audio.Media._ID} = ?", arrayOf(id.toString())).firstOrNull()
                 else -> null
             }
