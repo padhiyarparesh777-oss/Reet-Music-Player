@@ -629,7 +629,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         val isQueue = utility == "queue"
         val isAdd = utility == "add"
         AlertDialog(onDismissRequest = { utility = "" }, containerColor = panel,
-            title = { Text(when(utility) { "lyrics" -> "Lyrics"; "queue" -> "Play queue"; "add" -> "Add to playlist"; else -> "Equalizer visualizer" }, color = fg) },
+            title = { Text(when(utility) { "lyrics" -> "Lyrics"; "queue" -> "Play queue"; "add" -> "Add to playlist"; "about" -> "About Reet Music"; else -> "Equalizer" }, color = fg) },
             text = {
                 when {
                     isLyrics -> Column(Modifier.heightIn(max = 400.dp)) {
