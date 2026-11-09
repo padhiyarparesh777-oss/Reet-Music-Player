@@ -110,6 +110,34 @@ private val Glass = Color(0xFF171A25)
 private val Line = Color(0x40FFFFFF)
 private val WaterTint = Color(0xFF8D7BFF)
 
+
+private data class LrcLine(val timeMs: Long, val text: String)
+
+private fun parseLrcLyrics(raw: String): List<LrcLine> {
+    val stamp = Regex("\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?]")
+    return raw.lineSequence().flatMap { line ->
+        val matches = stamp.findAll(line).toList()
+        if (matches.isEmpty()) emptySequence() else {
+            val lyric = stamp.replace(line, "").trim()
+            matches.asSequence().map { match ->
+                val minutes = match.groupValues[1].toLongOrNull() ?: 0L
+                val seconds = match.groupValues[2].toLongOrNull() ?: 0L
+                val fractionRaw = match.groupValues[3]
+                val millis = when (fractionRaw.length) {
+                    1 -> (fractionRaw.toLongOrNull() ?: 0L) * 100L
+                    2 -> (fractionRaw.toLongOrNull() ?: 0L) * 10L
+                    3 -> fractionRaw.toLongOrNull() ?: 0L
+                    else -> 0L
+                }
+                LrcLine((minutes * 60L + seconds) * 1000L + millis, lyric)
+            }
+        }
+    }.sortedBy { it.timeMs }
+}
+
+private fun activeLrcIndex(lines: List<LrcLine>, positionMs: Long): Int =
+    lines.indexOfLast { it.timeMs <= positionMs }
+
 private data class Song(
     val id: Long, val title: String, val artist: String, val album: String,
     val duration: Long, val folder: String, val albumId: Long, val uri: Uri,
@@ -762,10 +790,19 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         Text(current?.title.orEmpty(), color = fg, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         Text(current?.artist.orEmpty(), color = muted, fontSize = 10.sp)
                         Spacer(Modifier.height(18.dp))
-                        if (lyrics.isBlank()) Text("No saved lyrics yet. Add lyrics for offline access.", color = muted, fontSize = 12.sp)
-                        else Text(lyrics, color = fg, fontSize = 14.sp, lineHeight = 24.sp)
+                        val syncedLines = remember(lyrics) { parseLrcLyrics(lyrics) }
+                        val activeLine = activeLrcIndex(syncedLines, position)
+                        if (lyrics.isBlank()) {
+                            Text("No saved lyrics yet. Paste plain lyrics or timestamped .LRC lyrics for offline access.", color = muted, fontSize = 12.sp)
+                        } else if (syncedLines.isNotEmpty()) {
+                            Column(Modifier.fillMaxWidth().heightIn(max = 250.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                                syncedLines.forEachIndexed { index, line ->
+                                    Text(line.text.ifBlank { "♪" }, color = if (index == activeLine) accent else muted.copy(alpha = if (index in (activeLine + 1)..(activeLine + 2)) .85f else .45f), fontSize = if (index == activeLine) 18.sp else 13.sp, fontWeight = if (index == activeLine) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp))
+                                }
+                            }
+                        } else Text(lyrics, color = fg, fontSize = 14.sp, lineHeight = 24.sp)
                         Spacer(Modifier.height(12.dp))
-                        Text("Edit lyrics", color = accent, modifier = Modifier.clickable { lyricsEdit = true })
+                        Text("Edit / paste LRC lyrics", color = accent, modifier = Modifier.clickable { lyricsEdit = true })
                     }
                     isQueue -> {
                         val queuedSongs = (0 until player.mediaItemCount).mapNotNull { index ->
