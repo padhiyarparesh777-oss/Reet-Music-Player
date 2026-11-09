@@ -62,6 +62,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -857,14 +859,17 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                         val minDb = range[0].toFloat() / 100f
                                         val maxDb = range[1].toFloat() / 100f
                                         val value = eqBandLevels.getOrNull(band) ?: 0f
-                                        Slider(value = value.coerceIn(minDb, maxDb), onValueChange = { next ->
-                                            val copy = eqBandLevels.toMutableList()
-                                            if (band < copy.size) copy[band] = next
-                                            eqBandLevels = copy; selectedEqPreset = "Custom"
-                                            prefs.edit().putFloat("eq_band_$band", next).putString("eq_preset", "Custom").apply()
-                                            runCatching { equalizer.setBandLevel(band.toShort(), (next * 100f).toInt().toShort()) }
-                                        }, valueRange = minDb..maxDb, modifier = Modifier.height(126.dp),
-                                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                                        VerticalEqualizerBand(
+                                            value = value.coerceIn(minDb, maxDb), min = minDb, max = maxDb,
+                                            accent = accent, track = fg.copy(alpha = .18f),
+                                            modifier = Modifier.width(38.dp).height(174.dp),
+                                            onValueChange = { next ->
+                                                val copy = eqBandLevels.toMutableList()
+                                                if (band < copy.size) copy[band] = next
+                                                eqBandLevels = copy; selectedEqPreset = "Custom"
+                                                prefs.edit().putFloat("eq_band_$band", next).putString("eq_preset", "Custom").apply()
+                                                runCatching { equalizer.setBandLevel(band.toShort(), (next * 100f).toInt().toShort()) }
+                                            })
                                         Text(labels.getOrElse(band) { "Band ${band + 1}" }, color = muted, fontSize = 8.sp, maxLines = 1)
                                         Text(String.format(Locale.getDefault(), "%.1f", value) + " dB", color = fg, fontSize = 9.sp)
                                     }
@@ -910,7 +915,32 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         })
                         Divider(color = glassStroke)
                         Text("HOME SCREEN MUSIC WIDGET", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                        Text("Choose a widget size and pin it directly to your Home screen.", color = muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        Text("Live previews show how each size will look on your Home screen.", color = muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        listOf("Compact", "Medium", "Large").forEach { mode ->
+                            val isCompact = mode == "Compact"
+                            val isLarge = mode == "Large"
+                            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                .background(Brush.linearGradient(listOf(accent.copy(alpha = .25f), panel, Color.Black.copy(alpha = .16f))))
+                                .border(1.dp, glassStroke, RoundedCornerShape(18.dp)).padding(10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    current?.let { SongArtwork(it.albumId, accent, if (isCompact) 34 else 46) }
+                                        ?: ArtworkPlaceholder(accent, if (isCompact) 34 else 46)
+                                    Spacer(Modifier.width(9.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(current?.title ?: "Reet Music Player", color = fg, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (!isCompact) Text(current?.artist ?: "Your offline music", color = muted, fontSize = 9.sp, maxLines = 1)
+                                    }
+                                    if (isLarge) Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(20.dp))
+                                }
+                                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.SkipPrevious, "Previous", tint = fg, modifier = Modifier.size(if (isCompact) 17.dp else 21.dp))
+                                    Icon(if (playing) Icons.Default.PauseCircleFilled else Icons.Default.PlayCircleFilled, "Play or pause", tint = accent, modifier = Modifier.size(if (isCompact) 23.dp else 29.dp))
+                                    Icon(Icons.Default.SkipNext, "Next", tint = fg, modifier = Modifier.size(if (isCompact) 17.dp else 21.dp))
+                                    Icon(Icons.Default.FavoriteBorder, "Favourite", tint = accent, modifier = Modifier.size(if (isCompact) 17.dp else 21.dp))
+                                }
+                                Text("$mode preview", color = muted, fontSize = 8.sp, modifier = Modifier.align(Alignment.End))
+                            }
+                        }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             listOf("Compact", "Medium", "Large").forEach { mode ->
                                 Text("Add $mode", color = Color.White, fontSize = 10.sp,
