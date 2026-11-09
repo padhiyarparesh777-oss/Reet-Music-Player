@@ -196,7 +196,6 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var showSortOptions by remember { mutableStateOf(false) }
     var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", false)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
-    var heroTheme by remember { mutableStateOf(prefs.getString("hero_theme", "Classic") ?: "Classic") }
     var skipShortTracks by remember { mutableStateOf(prefs.getBoolean("skip_under_60s", false)) }
     var lyrics by remember { mutableStateOf("") }
     var lyricsEdit by remember { mutableStateOf(false) }
@@ -216,37 +215,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         "Gold" -> Color(0xFFE8C16C)
         else -> Pink
     }
-    val heroAccent = when (heroTheme) {
-        "Spider-Man" -> Color(0xFFFF3448)
-        "Iron Man" -> Color(0xFFFF9A35)
-        "Thor" -> Color(0xFF72B9FF)
-        "Hulk" -> Color(0xFF72D65B)
-        "Black Panther" -> Color(0xFFB18AFF)
-        "Captain America" -> Color(0xFF5E9DFF)
-        "Doctor Strange" -> Color(0xFFFF754C)
-        "Loki" -> Color(0xFF55D6A0)
-        "Deadpool" -> Color(0xFFFF4055)
-        "Captain Marvel" -> Color(0xFFFFC65C)
-        "Venom" -> Color(0xFF9CA7C7)
-        "Wolverine" -> Color(0xFFFFD34E)
-        else -> baseAccent
-    }
-    val accent = heroAccent
-    val heroGlow = when (heroTheme) {
-        "Spider-Man" -> Color(0xFF741B36)
-        "Iron Man" -> Color(0xFF713019)
-        "Thor" -> Color(0xFF183B70)
-        "Hulk" -> Color(0xFF214B28)
-        "Black Panther" -> Color(0xFF302052)
-        "Captain America" -> Color(0xFF1D376B)
-        "Doctor Strange" -> Color(0xFF54251E)
-        "Loki" -> Color(0xFF164A3A)
-        "Deadpool" -> Color(0xFF651D2A)
-        "Captain Marvel" -> Color(0xFF68451D)
-        "Venom" -> Color(0xFF252B3E)
-        "Wolverine" -> Color(0xFF5B4A1B)
-        else -> Color(0xFF17132A)
-    }
+    val accent = baseAccent
+    val heroGlow = Color(0xFF17132A)
     val bg = if (lightMode) Color(0xFFFFF7FB) else Charcoal
     val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0xB8171B28)
     val glassStroke = if (lightMode) Color.White.copy(alpha = .96f) else Color.White.copy(alpha = .22f)
@@ -333,14 +303,6 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             Text("Music Player", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                         }
                     }
-                    CircleAction(Icons.Default.Search, fg, panel) { tab = "Search"; mediaCategory = "Songs" }
-                    Spacer(Modifier.width(8.dp))
-                    CircleAction(if (lightMode) Icons.Default.DarkMode else Icons.Default.LightMode, fg, panel) {
-                        lightMode = !lightMode
-                        prefs.edit().putBoolean("light_mode", lightMode).apply()
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    CircleAction(Icons.Default.NotificationsNone, fg, panel) { scan() }
                     Spacer(Modifier.width(8.dp))
                     CircleAction(Icons.Default.Settings, fg, panel) { showSettings = true }
                 }
@@ -599,14 +561,20 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             val artMotion = rememberInfiniteTransition(label = "artMotion")
             val artScale by artMotion.animateFloat(1f, 1.035f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "artScale")
             Box(Modifier.fillMaxSize().background(bg), contentAlignment = Alignment.Center) {
-                if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
-                    modifier = Modifier.fillMaxSize().blur(70.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                val playerWallpaper = when (wallpaperMode) {
+                    "AUTO" -> wallpaperNames.getOrNull(wallpaperIndex)
+                    "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
+                    else -> null
+                }
+                if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper)
+                else if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
+                    modifier = Modifier.fillMaxSize().blur(64.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
-                    Color.White.copy(alpha = if (lightMode) .62f else .24f), bg.copy(alpha = .72f),
-                    Color.White.copy(alpha = if (lightMode) .76f else .18f)                ))))
+                    Color.Black.copy(alpha = .48f), bg.copy(alpha = .56f), Color.Black.copy(alpha = .52f)
+                ))).blur(18.dp))
                 val cardShape = RoundedCornerShape(34.dp)
                 Column(
-                    Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 13.dp)
+                    Modifier.fillMaxWidth(.88f).fillMaxHeight(.80f)
                         .shadow(28.dp, cardShape, ambientColor = accent, spotColor = accent).clip(cardShape)
                         .background(Brush.linearGradient(listOf(
                             Color.White.copy(alpha = if (lightMode) .88f else .16f),
@@ -782,92 +750,81 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             dismissButton = { TextButton(onClick = { playlistDialog = false }) { Text("Cancel", color = muted) } })
     }
     if (showSettings) {
-        AlertDialog(onDismissRequest = { showSettings = false }, containerColor = panel,
-            title = { Text("Settings", color = fg, fontWeight = FontWeight.Bold) },
-            text = { Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("THEME", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Appearance", color = fg, fontSize = 12.sp); Text("Choose light or dark mode", color = muted, fontSize = 9.sp) }
-                    Switch(checked = lightMode, onCheckedChange = { lightMode = it; prefs.edit().putBoolean("light_mode", it).apply() })
-                }
-                Text("WALLPAPER MODE", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    listOf("AUTO" to "Dark Auto", "FIXED" to "Dark Fixed", "OFF" to "Off").forEach { (mode, label) ->
-                        Text(label, color = if (wallpaperMode == mode) Color.White else muted, fontSize = 10.sp,
-                            modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (wallpaperMode == mode) accent.copy(alpha = .65f) else panel).clickable { wallpaperMode = mode; prefs.edit().putString("wallpaper_mode", mode).apply() }.padding(horizontal = 11.dp, vertical = 9.dp))
-                    }
-                }
-                if (wallpaperMode == "FIXED" && wallpaperNames.isNotEmpty()) {
-                    Text("CHOOSE WALLPAPER", color = muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Column(Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState())) {
-                        wallpaperNames.forEach { name -> Text(name.substringBeforeLast('.').replace('_', ' '), color = if (fixedWallpaper == name) accent else fg, fontSize = 10.sp,
-                            modifier = Modifier.fillMaxWidth().clickable { fixedWallpaper = name; prefs.edit().putString("fixed_wallpaper", name).apply() }.padding(vertical = 5.dp)) }
-                    }
-                }
-                Text("MARVEL HERO THEMES", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "Classic" to Color(0xFF8D7BFF), "Spider-Man" to Color(0xFFFF3448),
-                        "Iron Man" to Color(0xFFFF9A35), "Thor" to Color(0xFF72B9FF),
-                        "Hulk" to Color(0xFF72D65B), "Black Panther" to Color(0xFFB18AFF),
-                        "Captain America" to Color(0xFF5E9DFF), "Doctor Strange" to Color(0xFFFF754C),
-                        "Loki" to Color(0xFF55D6A0), "Deadpool" to Color(0xFFFF4055),
-                        "Captain Marvel" to Color(0xFFFFC65C), "Venom" to Color(0xFF9CA7C7),
-                        "Wolverine" to Color(0xFFFFD34E)
-                    ).forEach { (name, color) ->
-                        Column(
-                            Modifier.width(86.dp).clip(RoundedCornerShape(16.dp))
-                                .background(if (heroTheme == name) color.copy(alpha = .24f) else panel)
-                                .border(if (heroTheme == name) 1.5.dp else 1.dp,
-                                    if (heroTheme == name) color else glassStroke, RoundedCornerShape(16.dp))
-                                .clickable { heroTheme = name; prefs.edit().putString("hero_theme", name).apply() }
-                                .padding(horizontal = 9.dp, vertical = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(Modifier.size(24.dp).clip(CircleShape).background(Brush.linearGradient(listOf(color, color.copy(alpha = .35f)))))
-                            Spacer(Modifier.height(6.dp))
-                            Text(name, color = fg, fontSize = 9.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Dialog(onDismissRequest = { showSettings = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            AnimatedVisibility(
+                visible = showSettings,
+                enter = androidx.compose.animation.slideInVertically(initialOffsetY = { -it }, animationSpec = tween(360)) + androidx.compose.animation.fadeIn(tween(260)),
+                exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(240)) + androidx.compose.animation.fadeOut(tween(180))
+            ) {
+                Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CircleAction(Icons.Default.ArrowBack, fg, panel, size = 44) { showSettings = false }
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text("Settings", color = fg, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("Make Reet yours", color = muted, fontSize = 11.sp)
                         }
                     }
-                }
-                Text("Accent colour", color = muted, fontSize = 10.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    listOf("Pink" to Pink, "Purple" to Color(0xFFB99AFF), "Blue" to Color(0xFF76BFFF), "Red" to Color(0xFFFF6474), "Mint" to Color(0xFF65DDB5), "Gold" to Color(0xFFE8C16C)).forEach { (name, color) ->
-                        Box(Modifier.size(29.dp).clip(CircleShape).background(color).border(if (accentName == name) 3.dp else 0.dp, fg, CircleShape).clickable {
-                            accentName = name; prefs.edit().putString("accent", name).apply()
-                        })
+                    Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("THEME & APPEARANCE", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) { Text("Light theme", color = fg, fontSize = 13.sp); Text("Choose light or dark appearance", color = muted, fontSize = 10.sp) }
+                            Switch(checked = lightMode, onCheckedChange = { lightMode = it; prefs.edit().putBoolean("light_mode", it).apply() })
+                        }
+                        Text("WALLPAPER MODE", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf("AUTO" to "Auto", "FIXED" to "Fixed", "OFF" to "Off").forEach { (mode, label) ->
+                                Text(label, color = if (wallpaperMode == mode) Color.White else muted, fontSize = 11.sp,
+                                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (wallpaperMode == mode) accent.copy(alpha = .72f) else panel)
+                                        .clickable { wallpaperMode = mode; prefs.edit().putString("wallpaper_mode", mode).apply() }.padding(horizontal = 15.dp, vertical = 11.dp))
+                            }
+                        }
+                        if (wallpaperMode == "FIXED" && wallpaperNames.isNotEmpty()) {
+                            Text("CHOOSE WALLPAPER", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Column(Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState())) {
+                                wallpaperNames.forEach { name -> Text(name.substringBeforeLast('.').replace('_', ' '), color = if (fixedWallpaper == name) accent else fg, fontSize = 11.sp,
+                                    modifier = Modifier.fillMaxWidth().clickable { fixedWallpaper = name; prefs.edit().putString("fixed_wallpaper", name).apply() }.padding(vertical = 7.dp)) }
+                            }
+                        }
+                        Text("ACCENT COLOUR", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            listOf("Pink" to Pink, "Purple" to Color(0xFFB99AFF), "Blue" to Color(0xFF76BFFF), "Red" to Color(0xFFFF6474), "Mint" to Color(0xFF65DDB5), "Gold" to Color(0xFFE8C16C)).forEach { (name, color) ->
+                                Box(Modifier.size(31.dp).clip(CircleShape).background(color).border(if (accentName == name) 3.dp else 0.dp, fg, CircleShape)
+                                    .clickable { accentName = name; prefs.edit().putString("accent", name).apply() })
+                            }
+                        }
+                        Divider(color = glassStroke)
+                        Text("AUDIO & PLAYBACK", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) { Text("Skip tracks under 60 seconds", color = fg, fontSize = 12.sp); Text("Automatically skip short audio clips", color = muted, fontSize = 10.sp) }
+                            Switch(checked = skipShortTracks, onCheckedChange = { skipShortTracks = it; prefs.edit().putBoolean("skip_under_60s", it).apply() })
+                        }
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text("Equalizer", color = fg, fontSize = 12.sp); Text("Open device sound effects and EQ", color = muted, fontSize = 10.sp) }
+                            Icon(Icons.Default.ChevronRight, null, tint = muted)
+                        }
+                        Divider(color = glassStroke)
+                        Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text("Scan Music Library", color = fg, fontSize = 12.sp); Text("Refresh offline songs", color = muted, fontSize = 10.sp) }
+                            Icon(Icons.Default.ChevronRight, null, tint = muted)
+                        }
+                        Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 11.sp)
+                        Divider(color = glassStroke)
+                        Text("ABOUT", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "about" }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, null, tint = accent); Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text("About Reet Music", color = fg, fontSize = 12.sp); Text("App information and version", color = muted, fontSize = 10.sp) }
+                            Icon(Icons.Default.ChevronRight, null, tint = muted)
+                        }
+                        Text("Offline mode · No streaming or account required.", color = muted, fontSize = 10.sp)
+                        Spacer(Modifier.height(22.dp))
                     }
                 }
-                Divider(color = glassStroke)
-                Text("AUDIO & PLAYBACK", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Skip tracks under 60 seconds", color = fg, fontSize = 11.sp); Text("Automatically skip short audio clips during playback", color = muted, fontSize = 9.sp) }
-                    Switch(checked = skipShortTracks, onCheckedChange = { skipShortTracks = it; prefs.edit().putBoolean("skip_under_60s", it).apply() })
-                }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("Equalizer", color = fg, fontSize = 11.sp); Text("Open device sound effects and EQ", color = muted, fontSize = 9.sp) }
-                    Icon(Icons.Default.ChevronRight, null, tint = muted)
-                }
-                Divider(color = glassStroke)
-                Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("Scan Music Library", color = fg, fontSize = 11.sp); Text("Refresh offline songs", color = muted, fontSize = 9.sp) }
-                    Icon(Icons.Default.ChevronRight, null, tint = muted)
-                }
-                Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 10.sp)
-                Divider(color = glassStroke)
-                Text("ABOUT", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "about" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("About Reet Music", color = fg, fontSize = 11.sp); Text("App information and version", color = muted, fontSize = 9.sp) }
-                    Icon(Icons.Default.ChevronRight, null, tint = muted)
-                }
-                Text("Offline mode · No streaming or account required.", color = muted, fontSize = 9.sp)
-            } },
-            confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Done", color = accent) } })
+            }
+        }
     }
 }
 
