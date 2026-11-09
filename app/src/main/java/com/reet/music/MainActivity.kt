@@ -218,6 +218,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val scanScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("reet_library", android.content.Context.MODE_PRIVATE) }
     val haptic = LocalHapticFeedback.current
+    val metadataRefresh = metadataRevision
     var songs by remember { mutableStateOf(emptyList<Song>()) }
     var current by remember { mutableStateOf<Song?>(null) }
     var playing by remember { mutableStateOf(false) }
@@ -368,6 +369,14 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             prefs.edit().putString("custom_art_$id", uri.toString()).apply()
             metadataRevision++
             if (current?.id == id) {
+                val song = current
+                val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == id.toString() } ?: -1
+                if (song != null && index >= 0) {
+                    val old = player.getMediaItemAt(index)
+                    val updated = MediaItem.Builder().setUri(old.localConfiguration?.uri ?: song.uri).setMediaId(id.toString())
+                        .setMediaMetadata(old.mediaMetadata.buildUpon().setArtworkUri(uri).build()).build()
+                    player.replaceMediaItem(index, updated)
+                }
                 prefs.edit().putString("widget_art_uri", uri.toString()).apply()
                 ReetMusicWidgetProvider.updateAll(context)
             }
@@ -622,8 +631,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                 SongArtwork(song.albumId, accent, 42, prefs.getString("custom_art_" + song.id, null))
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text(when(mediaCategory) { "Albums" -> song.album; "Artists" -> song.artist; "Folders" -> song.folder; else -> song.title }, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(if (mediaCategory == "Songs") song.artist + " · " + song.album else source.count { when(mediaCategory) { "Albums" -> it.album == song.album; "Artists" -> it.artist == song.artist; else -> it.folder == song.folder } }.toString() + " tracks", color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(when(mediaCategory) { "Albums" -> prefs.getString("meta_album_" + song.id, song.album) ?: song.album; "Artists" -> prefs.getString("meta_artist_" + song.id, song.artist) ?: song.artist; "Folders" -> song.folder; else -> prefs.getString("meta_title_" + song.id, song.title) ?: song.title }, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(if (mediaCategory == "Songs") (prefs.getString("meta_artist_" + song.id, song.artist) ?: song.artist) + " · " + (prefs.getString("meta_album_" + song.id, song.album) ?: song.album) else source.count { when(mediaCategory) { "Albums" -> it.album == song.album; "Artists" -> it.artist == song.artist; else -> it.folder == song.folder } }.toString() + " tracks", color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Text(formatTime(song.duration), color = muted, fontSize = 9.sp)
                                 Spacer(Modifier.width(5.dp))
