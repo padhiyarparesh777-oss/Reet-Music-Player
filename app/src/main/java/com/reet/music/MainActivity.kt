@@ -306,39 +306,6 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Spacer(Modifier.width(8.dp))
                     CircleAction(Icons.Default.Settings, fg, panel) { showSettings = true }
                 }
-                AnimatedVisibility(visible = current != null, enter = androidx.compose.animation.fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(260)), exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(180))) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(bottom = 9.dp).height(46.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                             .background(Brush.horizontalGradient(listOf(Color.White.copy(alpha = .22f), panel.copy(alpha = .42f), accent.copy(alpha = .18f), Color.White.copy(alpha = .10f))))
-                            .border(1.dp, Color.White.copy(alpha = .34f), RoundedCornerShape(24.dp))
-                            .softWhiteTap { showPlayer = true }.padding(horizontal = 11.dp)
-                            .animateContentSize(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(Modifier.size(27.dp).clip(CircleShape).background(accent.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(16.dp))
-                        }
-                        Spacer(Modifier.width(9.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(current?.title.orEmpty(), color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(if (playing) "NOW PLAYING" else "PAUSED", color = accent, fontSize = 7.sp, letterSpacing = 1.2.sp)
-                        }
-                        IconButton(onClick = { player.seekToPreviousMediaItem() }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.SkipPrevious, null, tint = fg, modifier = Modifier.size(17.dp)) }
-                        IconButton(onClick = { if (playing) player.pause() else player.play() }, modifier = Modifier.size(30.dp)) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = accent, modifier = Modifier.size(19.dp)) }
-                        IconButton(onClick = { player.seekToNextMediaItem() }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.SkipNext, null, tint = fg, modifier = Modifier.size(17.dp)) }
-                        IconButton(onClick = {
-                            current?.let { song ->
-                                val key = song.id.toString()
-                                favorites = if (favorites.contains(key)) favorites - key else favorites + key
-                                prefs.edit().putStringSet("favorites", favorites).apply()
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
-                        }, modifier = Modifier.size(30.dp)) {
-                            Icon(if (current?.let { favorites.contains(it.id.toString()) } == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = accent, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
                 Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 3.dp, bottom = 5.dp),
@@ -375,10 +342,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(when { mediaCategory == "New" -> "Recently added"; mediaCategory == "Favourites" || tab == "Favourites" -> "Your favourites"; tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(visible.size.toString() + if (mediaCategory == "Songs") " tracks · Offline library" else " " + mediaCategory.lowercase(Locale.getDefault()), color = muted, fontSize = 10.sp)
                     }
-                    Text("Sort: $sort", color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(panel.copy(alpha = .65f)).softWhiteTap { showSortOptions = true }.padding(horizontal = 10.dp, vertical = 8.dp))
-                    CircleAction(Icons.Default.SwapVert, fg, panel, 34) { ascending = !ascending }
                 }
                 Spacer(Modifier.height(9.dp))
                 if (!permission) {
@@ -574,18 +538,22 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Color.Black.copy(alpha = .48f), bg.copy(alpha = .56f), Color.Black.copy(alpha = .52f)
                 ))))
                 val cardShape = RoundedCornerShape(34.dp)
-                Column(
+                Box(
                     Modifier.fillMaxWidth(.88f).fillMaxHeight(.80f)
-                        .shadow(28.dp, cardShape, ambientColor = accent, spotColor = accent).clip(cardShape)
-                        .background(Brush.linearGradient(listOf(
-                            Color.White.copy(alpha = if (lightMode) .88f else .16f),
-                            Color(0xFFFFE7F0).copy(alpha = if (lightMode) .72f else .10f),
-                            Color.White.copy(alpha = if (lightMode) .64f else .13f)
-                        )))
+                        .shadow(28.dp, cardShape, ambientColor = accent, spotColor = accent)
+                        .clip(cardShape)
                         .border(1.2.dp, Color.White.copy(alpha = .90f), cardShape)
-                        .padding(horizontal = 19.dp, vertical = 13.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper)
+                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(
+                        Color.White.copy(alpha = if (lightMode) .88f else .38f),
+                        Color(0xFFFFE7F0).copy(alpha = if (lightMode) .72f else .26f),
+                        Color.White.copy(alpha = if (lightMode) .64f else .32f)
+                    ))))
+                    Column(
+                        Modifier.fillMaxSize().padding(horizontal = 19.dp, vertical = 13.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { showPlayer = false }) { Icon(Icons.Default.KeyboardArrowDown, "Close player", tint = fg) }
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -640,6 +608,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         PlayerTool(Icons.Default.PlaylistAdd, "Add to") { utility = "add" }
                     }
                     Spacer(Modifier.height(5.dp))
+                    }
                 }
             }
         }
