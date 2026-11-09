@@ -126,6 +126,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             catch (_: Exception) { null }
         }
 
+    }
 }
 
 class WidgetActionReceiver : android.content.BroadcastReceiver() {
