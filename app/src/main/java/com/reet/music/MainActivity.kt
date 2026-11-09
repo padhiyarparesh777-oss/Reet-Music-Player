@@ -3,6 +3,8 @@ package com.reet.music
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.ComponentName
+import android.content.Intent
+import android.media.audiofx.AudioEffect
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -773,7 +775,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 Text("Offline mode · No streaming or account required.", color = muted, fontSize = 9.sp)
             } },
             confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Done", color = accent) } })
-    }}
+    }
 }
 
 @Composable
