@@ -199,6 +199,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var showPlayer by remember { mutableStateOf(false) }
     var utility by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
+    var showSearchBar by remember { mutableStateOf(false) }
     var sort by remember { mutableStateOf(prefs.getString("sort", "Name") ?: "Name") }
     var ascending by remember { mutableStateOf(true) }
     var showSortOptions by remember { mutableStateOf(false) }
@@ -354,7 +355,12 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             Text("Music Player", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                         }
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
+                    CircleAction(Icons.Default.Search, fg, panel) {
+                        showSearchBar = !showSearchBar
+                        if (showSearchBar) tab = "Search" else { tab = "Home"; query = "" }
+                    }
+                    Spacer(Modifier.width(5.dp))
                     CircleAction(Icons.Default.Settings, fg, panel) { showSettings = true }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -381,13 +387,23 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         )
                     }
                 }
-                if (tab == "Search") Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .94f), panel.copy(alpha = .72f)))).border(1.dp, glassStroke, RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, null, tint = accent, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    BasicTextField(value = query, onValueChange = { query = it }, singleLine = true, modifier = Modifier.weight(1f),
-                        textStyle = androidx.compose.ui.text.TextStyle(color = fg, fontSize = 12.sp),
-                        decorationBox = { inner -> Box { if (query.isEmpty()) Text("Search your offline music", color = muted, fontSize = 12.sp); inner() } })
-                    if (query.isNotEmpty()) Icon(Icons.Default.Close, null, tint = muted, modifier = Modifier.size(16.dp).clickable { query = "" })
+                AnimatedVisibility(
+                    visible = showSearchBar,
+                    enter = scaleIn(initialScale = .82f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)) + fadeIn(),
+                    exit = scaleOut(targetScale = .92f) + fadeOut()
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(top = 5.dp).height(46.dp).clip(RoundedCornerShape(18.dp))
+                        .background(Brush.verticalGradient(listOf(panel.copy(alpha = .98f), panel.copy(alpha = .82f))))
+                        .border(1.dp, glassStroke, RoundedCornerShape(18.dp)).padding(horizontal = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Search, null, tint = accent, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(9.dp))
+                        BasicTextField(value = query, onValueChange = { query = it }, singleLine = true, modifier = Modifier.weight(1f),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = fg, fontSize = 12.sp),
+                            decorationBox = { inner -> Box { if (query.isEmpty()) Text("Search your offline music", color = muted, fontSize = 12.sp); inner() } })
+                        if (query.isNotEmpty()) Icon(Icons.Default.Close, null, tint = muted, modifier = Modifier.size(17.dp).clickable { query = "" })
+                        Icon(Icons.Default.Close, null, tint = muted, modifier = Modifier.padding(start = 8.dp).size(17.dp).clickable { showSearchBar = false; tab = "Home"; query = "" })
+                    }
                 }
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -494,19 +510,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.QueueMusic, null, tint = fg) }
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 5.dp).clip(RoundedCornerShape(25.dp)).background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .25f), panel.copy(alpha = .72f), Color.White.copy(alpha = .08f)))).border(1.dp, Color.White.copy(alpha = .48f), RoundedCornerShape(25.dp)).padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
-                    listOf(Triple("Home", Icons.Default.Home, "Home"), Triple("Search", Icons.Default.Search, "Search"), Triple("Playlists", Icons.Default.QueueMusic, "Playlists"), Triple("Library", Icons.Default.LibraryMusic, "Library")).forEach { (name, icon, label) ->
-                        val selected = tab == name
-                        Column(Modifier.weight(1f).clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            tab = name; selectedPlaylist = null
-                            if (name != "Search") query = ""
-                        }, horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(icon, null, tint = if (selected) accent else muted, modifier = Modifier.size(19.dp))
-                            Text(label, color = if (selected) accent else muted, fontSize = 9.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
-                        }
-                    }
-                }
+                Spacer(Modifier.height(5.dp))
             }
         }
       }
