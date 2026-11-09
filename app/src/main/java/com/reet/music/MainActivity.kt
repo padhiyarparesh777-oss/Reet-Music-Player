@@ -1,10 +1,14 @@
 package com.reet.music
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
 import android.content.pm.PackageManager
 import android.content.ComponentName
 import android.content.Intent
 import android.media.audiofx.AudioEffect
+import android.media.audiofx.Equalizer
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Virtualizer
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -30,6 +34,8 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,6 +60,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -194,12 +202,45 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var showSortOptions by remember { mutableStateOf(false) }
     var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", false)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
-    var heroTheme by remember { mutableStateOf(prefs.getString("hero_theme", "Classic") ?: "Classic") }
     var skipShortTracks by remember { mutableStateOf(prefs.getBoolean("skip_under_60s", false)) }
     var lyrics by remember { mutableStateOf("") }
     var lyricsEdit by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    var wallpaperMode by remember { mutableStateOf(prefs.getString("wallpaper_mode", "AUTO") ?: "AUTO") }
+    var wallpaperNames by remember { mutableStateOf(emptyList<String>()) }
+    var fixedWallpaper by remember { mutableStateOf(prefs.getString("fixed_wallpaper", "") ?: "") }
+    var wallpaperIndex by remember { mutableIntStateOf(0) }
+    var widgetLayout by remember { mutableStateOf(prefs.getString("widget_layout", "Medium") ?: "Medium") }
+    var widgetAutoWallpaper by remember { mutableStateOf(prefs.getBoolean("widget_wallpaper_auto", true)) }
+    var widgetWallpaper by remember { mutableStateOf(prefs.getString("widget_wallpaper", "") ?: "") }
+    val audioSessionId = MusicPlaybackService.audioSessionId
+    val equalizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Equalizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
+    val bassBoost = remember(audioSessionId) { runCatching { if (audioSessionId > 0) BassBoost(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
+    val virtualizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Virtualizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
+    var bassLevel by remember { mutableFloatStateOf(prefs.getInt("eq_bass", 0).toFloat()) }
+    var trebleLevel by remember { mutableFloatStateOf(prefs.getInt("eq_treble", 500).toFloat()) }
+    var virtualLevel by remember { mutableFloatStateOf(prefs.getInt("eq_virtual", 0).toFloat()) }
+    var selectedEqPreset by remember { mutableStateOf(prefs.getString("eq_preset", "Custom") ?: "Custom") }
+    var eqBandLevels by remember(audioSessionId) { mutableStateOf((0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { index -> runCatching { prefs.getFloat("eq_band_$index", (equalizer?.getBandLevel(index.toShort()) ?: 0).toFloat() / 100f) }.getOrDefault(0f) }) }
+    DisposableEffect(equalizer, bassBoost, virtualizer) {
+        onDispose { runCatching { equalizer?.release() }; runCatching { bassBoost?.release() }; runCatching { virtualizer?.release() } }
+    }
+    LaunchedEffect(bassLevel, virtualLevel) {
+        runCatching { bassBoost?.setStrength(bassLevel.toInt().toShort()) }
+        runCatching { virtualizer?.setStrength(virtualLevel.toInt().toShort()) }
+    }
+    LaunchedEffect(trebleLevel, equalizer) {
+        runCatching {
+            val lastBand = (equalizer?.numberOfBands?.toInt() ?: 0) - 1
+            if (lastBand >= 0) {
+                val range = equalizer!!.bandLevelRange
+                val level = (range[0] + (range[1] - range[0]) * (trebleLevel / 1000f)).toInt().toShort()
+                equalizer.setBandLevel(lastBand.toShort(), level)
+            }
+        }
+    }
+    LaunchedEffect(Unit) { wallpaperNames = withContext(Dispatchers.IO) { runCatching { context.assets.list("backgrounds")?.filter { it.endsWith(".jpg", true) || it.endsWith(".png", true) || it.endsWith(".webp", true) }?.sorted().orEmpty() }.getOrDefault(emptyList()) } }
 
     val baseAccent = when (accentName) {
         "Purple" -> Color(0xFFB99AFF)
@@ -209,42 +250,31 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         "Gold" -> Color(0xFFE8C16C)
         else -> Pink
     }
-    val heroAccent = when (heroTheme) {
-        "Spider-Man" -> Color(0xFFFF3448)
-        "Iron Man" -> Color(0xFFFF9A35)
-        "Thor" -> Color(0xFF72B9FF)
-        "Hulk" -> Color(0xFF72D65B)
-        "Black Panther" -> Color(0xFFB18AFF)
-        "Captain America" -> Color(0xFF5E9DFF)
-        "Doctor Strange" -> Color(0xFFFF754C)
-        "Loki" -> Color(0xFF55D6A0)
-        "Deadpool" -> Color(0xFFFF4055)
-        "Captain Marvel" -> Color(0xFFFFC65C)
-        "Venom" -> Color(0xFF9CA7C7)
-        "Wolverine" -> Color(0xFFFFD34E)
-        else -> baseAccent
-    }
-    val accent = heroAccent
-    val heroGlow = when (heroTheme) {
-        "Spider-Man" -> Color(0xFF741B36)
-        "Iron Man" -> Color(0xFF713019)
-        "Thor" -> Color(0xFF183B70)
-        "Hulk" -> Color(0xFF214B28)
-        "Black Panther" -> Color(0xFF302052)
-        "Captain America" -> Color(0xFF1D376B)
-        "Doctor Strange" -> Color(0xFF54251E)
-        "Loki" -> Color(0xFF164A3A)
-        "Deadpool" -> Color(0xFF651D2A)
-        "Captain Marvel" -> Color(0xFF68451D)
-        "Venom" -> Color(0xFF252B3E)
-        "Wolverine" -> Color(0xFF5B4A1B)
-        else -> Color(0xFF17132A)
-    }
+    val heroGlow = Color(0xFF17132A)
     val bg = if (lightMode) Color(0xFFFFF7FB) else Charcoal
     val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0xB8171B28)
-    val glassStroke = if (lightMode) Color.White.copy(alpha = .96f) else Color.White.copy(alpha = .22f)
-    val fg = if (lightMode) Color(0xFF211A20) else Color(0xFFF5F4FA)
-    val muted = if (lightMode) Color(0xFF817680) else SoftText
+    val glassStroke = if (lightMode) Color.White.copy(alpha = .70f) else Color.White.copy(alpha = .16f)
+    val selectedWallpaperForTheme = when (wallpaperMode) {
+        "AUTO" -> wallpaperNames.getOrNull(wallpaperIndex)
+        "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
+        else -> null
+    }
+    val wallpaperPalette by produceState(initialValue = Triple(baseAccent, Color.White, false), key1 = selectedWallpaperForTheme, key2 = baseAccent, key3 = lightMode) {
+        value = withContext(Dispatchers.IO) {
+            if (lightMode || selectedWallpaperForTheme == null) Triple(baseAccent, Color.White, false)
+            else runCatching {
+                val bitmap = context.assets.open("backgrounds/$selectedWallpaperForTheme").use { BitmapFactory.decodeStream(it) }
+                val palette = bitmap?.let { Palette.from(it).generate() }
+                val swatch = palette?.vibrantSwatch ?: palette?.dominantSwatch ?: palette?.mutedSwatch
+                val sampled = swatch?.rgb?.let { Color(it) } ?: baseAccent
+                val isBright = sampled.luminance() > .56f
+                Triple(sampled, if (isBright) Color(0xFF11131A) else Color.White, isBright)
+            }.getOrDefault(Triple(baseAccent, Color.White, false))
+        }
+    }
+    val accent = wallpaperPalette.first
+    val fg = if (lightMode) Color(0xFF17131A) else wallpaperPalette.second
+    val muted = if (lightMode) Color(0xFF514A55) else fg.copy(alpha = .72f)
     val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
     fun scan() { songs = loadSongs() }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -257,6 +287,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 current = songs.firstOrNull { it.id.toString() == mediaItem?.mediaId }
+                if (mediaItem != null && wallpaperMode == "AUTO" && wallpaperNames.isNotEmpty()) wallpaperIndex = (wallpaperIndex + 1) % wallpaperNames.size
                 current?.let { s ->
                     recent = (listOf(s.id.toString()) + recent.filterNot { it == s.id.toString() }).take(100)
                     prefs.edit().putString("recent", recent.joinToString("|")).apply()
@@ -303,7 +334,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
       CompositionLocalProvider(LocalIndication provides ripple(color = Color.White.copy(alpha = .48f))) {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else heroGlow, bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF080910))))) {
+        Box(Modifier.fillMaxSize().background(bg)) {
+            val selectedWallpaper = selectedWallpaperForTheme
+            if (!lightMode && selectedWallpaper != null) ReetWallpaper(selectedWallpaper)
+            else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else heroGlow, bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF080910)))))
             // Water-glass atmosphere with soft cyan and violet light blooms.
             Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background((if (lightMode) WaterTint else accent).copy(alpha = if (lightMode) .32f else .24f)).blur(78.dp))
             Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background((if (lightMode) Color(0xFFFFC9DC) else heroGlow).copy(alpha = if (lightMode) .30f else .30f)).blur(82.dp))
@@ -318,49 +352,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             Text("Music Player", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                         }
                     }
-                    CircleAction(Icons.Default.Search, fg, panel) { tab = "Search"; mediaCategory = "Songs" }
-                    Spacer(Modifier.width(8.dp))
-                    CircleAction(if (lightMode) Icons.Default.DarkMode else Icons.Default.LightMode, fg, panel) {
-                        lightMode = !lightMode
-                        prefs.edit().putBoolean("light_mode", lightMode).apply()
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    CircleAction(Icons.Default.NotificationsNone, fg, panel) { scan() }
                     Spacer(Modifier.width(8.dp))
                     CircleAction(Icons.Default.Settings, fg, panel) { showSettings = true }
-                }
-                AnimatedVisibility(visible = current != null, enter = androidx.compose.animation.fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(260)), exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(180))) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(bottom = 9.dp).height(46.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                             .background(Brush.horizontalGradient(listOf(Color.White.copy(alpha = .22f), panel.copy(alpha = .42f), accent.copy(alpha = .18f), Color.White.copy(alpha = .10f))))
-                            .border(1.dp, Color.White.copy(alpha = .34f), RoundedCornerShape(24.dp))
-                            .softWhiteTap { showPlayer = true }.padding(horizontal = 11.dp)
-                            .animateContentSize(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(Modifier.size(27.dp).clip(CircleShape).background(accent.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(16.dp))
-                        }
-                        Spacer(Modifier.width(9.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(current?.title.orEmpty(), color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(if (playing) "NOW PLAYING" else "PAUSED", color = accent, fontSize = 7.sp, letterSpacing = 1.2.sp)
-                        }
-                        IconButton(onClick = { player.seekToPreviousMediaItem() }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.SkipPrevious, null, tint = fg, modifier = Modifier.size(17.dp)) }
-                        IconButton(onClick = { if (playing) player.pause() else player.play() }, modifier = Modifier.size(30.dp)) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = accent, modifier = Modifier.size(19.dp)) }
-                        IconButton(onClick = { player.seekToNextMediaItem() }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.SkipNext, null, tint = fg, modifier = Modifier.size(17.dp)) }
-                        IconButton(onClick = {
-                            current?.let { song ->
-                                val key = song.id.toString()
-                                favorites = if (favorites.contains(key)) favorites - key else favorites + key
-                                prefs.edit().putStringSet("favorites", favorites).apply()
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
-                        }, modifier = Modifier.size(30.dp)) {
-                            Icon(if (current?.let { favorites.contains(it.id.toString()) } == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = accent, modifier = Modifier.size(16.dp))
-                        }
-                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(
@@ -398,10 +391,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(when { mediaCategory == "New" -> "Recently added"; mediaCategory == "Favourites" || tab == "Favourites" -> "Your favourites"; tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(visible.size.toString() + if (mediaCategory == "Songs") " tracks · Offline library" else " " + mediaCategory.lowercase(Locale.getDefault()), color = muted, fontSize = 10.sp)
                     }
-                    Text("Sort: $sort", color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(panel.copy(alpha = .65f)).softWhiteTap { showSortOptions = true }.padding(horizontal = 10.dp, vertical = 8.dp))
-                    CircleAction(Icons.Default.SwapVert, fg, panel, 34) { ascending = !ascending }
                 }
                 Spacer(Modifier.height(9.dp))
                 if (!permission) {
@@ -458,7 +448,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
                                     val index = songs.indexOfFirst { it.id == song.id }
-                                    player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).build()).build() }, index.coerceAtLeast(0), 0L)
+                                    player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index.coerceAtLeast(0), 0L)
                                     player.prepare(); player.play(); showPlayer = true
                                 }.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                                 SongArtwork(song.albumId, accent, 42)
@@ -575,33 +565,38 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         Dialog(onDismissRequest = { showPlayer = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             val song = current!!
             val art = rememberArtwork(song.albumId)
-            val dynamicAccent by produceState(initialValue = accent, key1 = art, key2 = accent) {
-                value = withContext(Dispatchers.Default) {
-                    try { art?.let { Palette.from(it).generate().vibrantSwatch?.rgb?.let { rgb -> Color(rgb) } } ?: accent }
-                    catch (_: Exception) { accent }
-                }
-            }
+            val dynamicAccent = accent
             val artMotion = rememberInfiniteTransition(label = "artMotion")
             val artScale by artMotion.animateFloat(1f, 1.035f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "artScale")
             Box(Modifier.fillMaxSize().background(bg), contentAlignment = Alignment.Center) {
-                if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
-                    modifier = Modifier.fillMaxSize().blur(70.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                val playerWallpaper = when (wallpaperMode) {
+                    "AUTO" -> wallpaperNames.getOrNull(wallpaperIndex)
+                    "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
+                    else -> null
+                }
+                if (!lightMode && playerWallpaper != null) {
+                    Box(Modifier.fillMaxSize().blur(24.dp)) { ReetWallpaper(playerWallpaper) }
+                } else if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
+                    modifier = Modifier.fillMaxSize().blur(64.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
-                    Color.White.copy(alpha = if (lightMode) .62f else .24f), bg.copy(alpha = .72f),
-                    Color.White.copy(alpha = if (lightMode) .76f else .18f)                ))))
+                    Color.Black.copy(alpha = .48f), bg.copy(alpha = .56f), Color.Black.copy(alpha = .52f)
+                ))))
                 val cardShape = RoundedCornerShape(34.dp)
-                Column(
-                    Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 13.dp)
-                        .shadow(28.dp, cardShape, ambientColor = accent, spotColor = accent).clip(cardShape)
-                        .background(Brush.linearGradient(listOf(
-                            Color.White.copy(alpha = if (lightMode) .88f else .16f),
-                            Color(0xFFFFE7F0).copy(alpha = if (lightMode) .72f else .10f),
-                            Color.White.copy(alpha = if (lightMode) .64f else .13f)
-                        )))
-                        .border(1.2.dp, Color.White.copy(alpha = .90f), cardShape)
-                        .padding(horizontal = 19.dp, vertical = 13.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Box(
+                    Modifier.fillMaxWidth(.84f).fillMaxHeight(.74f)
+                        .shadow(38.dp, cardShape, ambientColor = Color.Black, spotColor = Color.Black)
+                        .clip(cardShape)
                 ) {
+                    if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper, darken = false)
+                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(
+                        Color.White.copy(alpha = if (lightMode) .72f else .10f),
+                        Color(0xFFFFE7F0).copy(alpha = if (lightMode) .60f else .08f),
+                        Color.White.copy(alpha = if (lightMode) .48f else .10f)
+                    ))))
+                    Column(
+                        Modifier.fillMaxSize().padding(horizontal = 19.dp, vertical = 13.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { showPlayer = false }) { Icon(Icons.Default.KeyboardArrowDown, "Close player", tint = fg) }
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -610,23 +605,34 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         }
                         IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.MoreVert, "More options", tint = fg) }
                     }
-                    Box(Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                        if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
-                            modifier = Modifier.fillMaxHeight(.94f).aspectRatio(1f)
-                                .graphicsLayer { scaleX = artScale; scaleY = artScale }
-                                .shadow(20.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp)),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop)
-                        else ArtworkPlaceholder(accent, 220)
-                    }
+                    Spacer(Modifier.weight(1f))
                     Text(song.title, color = fg, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(song.artist + " · " + song.album, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(58.dp), contentAlignment = Alignment.Center) {
-                        PulsingLines(playing, dynamicAccent, Modifier.fillMaxSize())
+                        val progress = if (duration > 0L) position.coerceIn(0L, duration).toFloat() / duration.toFloat() else 0f
+                        Canvas(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(28.dp)) {
+                            val centerY = size.height / 2f
+                            val startX = 0f
+                            val endX = size.width
+                            val currentX = startX + (endX - startX) * progress
+                            drawLine(Color.White.copy(alpha = .38f), Offset(startX, centerY), Offset(endX, centerY),
+                                strokeWidth = 5.dp.toPx(), cap = StrokeCap.Round)
+                            drawLine(Color.White.copy(alpha = .28f), Offset(startX, centerY), Offset(endX, centerY),
+                                strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
+                            if (currentX > startX) {
+                                drawLine(accent.copy(alpha = .72f), Offset(startX, centerY), Offset(currentX, centerY),
+                                    strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+                                drawCircle(accent.copy(alpha = .20f), radius = 15.dp.toPx(), center = Offset(currentX, centerY))
+                                drawCircle(accent.copy(alpha = .42f), radius = 9.dp.toPx(), center = Offset(currentX, centerY))
+                                drawCircle(accent, radius = 5.dp.toPx(), center = Offset(currentX, centerY))
+                            }
+                        }
                         Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f,
                             onValueChange = { position = it.toLong() }, onValueChangeFinished = { player.seekTo(position) },
                             valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
-                            colors = SliderDefaults.colors(thumbColor = dynamicAccent, activeTrackColor = dynamicAccent, inactiveTrackColor = Color.White.copy(alpha = .75f)))
+                            colors = SliderDefaults.colors(thumbColor = Color.Transparent, activeTrackColor = Color.Transparent,
+                                inactiveTrackColor = Color.Transparent, disabledThumbColor = Color.Transparent))
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(formatTime(position), color = muted, fontSize = 10.sp)
@@ -634,10 +640,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     Spacer(Modifier.height(7.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (player.shuffleModeEnabled) accent else muted) }
+                        IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (player.shuffleModeEnabled) dynamicAccent else muted) }
                         IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = fg, modifier = Modifier.size(30.dp)) }
                         Box(Modifier.size(66.dp).shadow(12.dp, CircleShape).clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFFFFB7D0), Color(0xFFE5558A))))
+                            .background(Brush.linearGradient(listOf(dynamicAccent.copy(alpha = .95f), dynamicAccent.copy(alpha = .62f))))
                             .clickable { if (playing) player.pause() else player.play() }, contentAlignment = Alignment.Center) {
                             Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play/Pause", tint = Color.White, modifier = Modifier.size(34.dp))
                         }
@@ -650,12 +656,13 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        PlayerTool(Icons.Default.QueueMusic, "Queue") { utility = "queue" }
-                        PlayerTool(Icons.Default.Description, "Lyrics") { utility = "lyrics" }
-                        PlayerTool(Icons.Default.GraphicEq, "Equalizer") { utility = "equalizer" }
-                        PlayerTool(Icons.Default.PlaylistAdd, "Add to") { utility = "add" }
+                        PlayerTool(Icons.Default.QueueMusic, "Queue", dynamicAccent, fg) { utility = "queue" }
+                        PlayerTool(Icons.Default.Description, "Lyrics", dynamicAccent, fg) { utility = "lyrics" }
+                        PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent, fg) { utility = "equalizer" }
+                        PlayerTool(Icons.Default.PlaylistAdd, "Add to", dynamicAccent, fg) { utility = "add" }
                     }
                     Spacer(Modifier.height(5.dp))
+                    }
                 }
             }
         }
@@ -693,7 +700,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         item { Text("UP NEXT", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 5.dp)) }
                         items(songs.filterNot { it.id == current?.id }) { s -> Row(Modifier.fillMaxWidth().clickable {
                             val index = songs.indexOf(s); current = s
-                            player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).build()).build() }, index, 0L)
+                            player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index, 0L)
                             player.prepare(); player.play(); utility = ""
                         }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.DragHandle, null, tint = muted, modifier = Modifier.size(18.dp))
@@ -767,78 +774,227 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             dismissButton = { TextButton(onClick = { playlistDialog = false }) { Text("Cancel", color = muted) } })
     }
     if (showSettings) {
-        AlertDialog(onDismissRequest = { showSettings = false }, containerColor = panel,
-            title = { Text("Settings", color = fg, fontWeight = FontWeight.Bold) },
-            text = { Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("THEME", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Appearance", color = fg, fontSize = 12.sp); Text("Choose light or dark mode", color = muted, fontSize = 9.sp) }
-                    Switch(checked = lightMode, onCheckedChange = { lightMode = it; prefs.edit().putBoolean("light_mode", it).apply() })
-                }
-                Text("MARVEL HERO THEMES", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "Classic" to Color(0xFF8D7BFF), "Spider-Man" to Color(0xFFFF3448),
-                        "Iron Man" to Color(0xFFFF9A35), "Thor" to Color(0xFF72B9FF),
-                        "Hulk" to Color(0xFF72D65B), "Black Panther" to Color(0xFFB18AFF),
-                        "Captain America" to Color(0xFF5E9DFF), "Doctor Strange" to Color(0xFFFF754C),
-                        "Loki" to Color(0xFF55D6A0), "Deadpool" to Color(0xFFFF4055),
-                        "Captain Marvel" to Color(0xFFFFC65C), "Venom" to Color(0xFF9CA7C7),
-                        "Wolverine" to Color(0xFFFFD34E)
-                    ).forEach { (name, color) ->
-                        Column(
-                            Modifier.width(86.dp).clip(RoundedCornerShape(16.dp))
-                                .background(if (heroTheme == name) color.copy(alpha = .24f) else panel)
-                                .border(if (heroTheme == name) 1.5.dp else 1.dp,
-                                    if (heroTheme == name) color else glassStroke, RoundedCornerShape(16.dp))
-                                .clickable { heroTheme = name; prefs.edit().putString("hero_theme", name).apply() }
-                                .padding(horizontal = 9.dp, vertical = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(Modifier.size(24.dp).clip(CircleShape).background(Brush.linearGradient(listOf(color, color.copy(alpha = .35f)))))
-                            Spacer(Modifier.height(6.dp))
-                            Text(name, color = fg, fontSize = 9.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Dialog(onDismissRequest = { showSettings = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            val settingsVisibility = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+            AnimatedVisibility(
+                visibleState = settingsVisibility,
+                enter = androidx.compose.animation.slideInVertically(initialOffsetY = { -it }, animationSpec = tween(360)) + androidx.compose.animation.fadeIn(tween(260)),
+                exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(240)) + androidx.compose.animation.fadeOut(tween(180))
+            ) {
+                Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CircleAction(Icons.Default.ArrowBack, fg, panel, size = 44) { showSettings = false }
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text("Settings", color = fg, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("Make Reet yours", color = muted, fontSize = 11.sp)
                         }
                     }
-                }
-                Text("Accent colour", color = muted, fontSize = 10.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    listOf("Pink" to Pink, "Purple" to Color(0xFFB99AFF), "Blue" to Color(0xFF76BFFF), "Red" to Color(0xFFFF6474), "Mint" to Color(0xFF65DDB5), "Gold" to Color(0xFFE8C16C)).forEach { (name, color) ->
-                        Box(Modifier.size(29.dp).clip(CircleShape).background(color).border(if (accentName == name) 3.dp else 0.dp, fg, CircleShape).clickable {
-                            accentName = name; prefs.edit().putString("accent", name).apply()
+                    Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("THEME & APPEARANCE", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) { Text("Light theme", color = fg, fontSize = 13.sp); Text("Choose light or dark appearance", color = muted, fontSize = 10.sp) }
+                            Switch(checked = lightMode, onCheckedChange = { lightMode = it; prefs.edit().putBoolean("light_mode", it).apply() })
+                        }
+                        Text("WALLPAPER MODE", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf("AUTO" to "Auto", "FIXED" to "Fixed", "OFF" to "Off").forEach { (mode, label) ->
+                                Text(label, color = if (wallpaperMode == mode) Color.White else muted, fontSize = 11.sp,
+                                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (wallpaperMode == mode) accent.copy(alpha = .72f) else panel)
+                                        .clickable { wallpaperMode = mode; prefs.edit().putString("wallpaper_mode", mode).apply() }.padding(horizontal = 15.dp, vertical = 11.dp))
+                            }
+                        }
+                        if (wallpaperMode == "FIXED" && wallpaperNames.isNotEmpty()) {
+                            Text("CHOOSE WALLPAPER", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Column(Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState())) {
+                                wallpaperNames.forEach { name -> Text(name.substringBeforeLast('.').replace('_', ' '), color = if (fixedWallpaper == name) accent else fg, fontSize = 11.sp,
+                                    modifier = Modifier.fillMaxWidth().clickable { fixedWallpaper = name; prefs.edit().putString("fixed_wallpaper", name).apply() }.padding(vertical = 7.dp)) }
+                            }
+                        }
+                        Text("ACCENT COLOUR", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            listOf("Pink" to Pink, "Purple" to Color(0xFFB99AFF), "Blue" to Color(0xFF76BFFF), "Red" to Color(0xFFFF6474), "Mint" to Color(0xFF65DDB5), "Gold" to Color(0xFFE8C16C)).forEach { (name, color) ->
+                                Box(Modifier.size(31.dp).clip(CircleShape).background(color).border(if (accentName == name) 3.dp else 0.dp, fg, CircleShape)
+                                    .clickable { accentName = name; prefs.edit().putString("accent", name).apply() })
+                            }
+                        }
+                        Divider(color = glassStroke)
+                        Text("AUDIO & PLAYBACK", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) { Text("Skip tracks under 60 seconds", color = fg, fontSize = 12.sp); Text("Automatically skip short audio clips", color = muted, fontSize = 10.sp) }
+                            Switch(checked = skipShortTracks, onCheckedChange = { skipShortTracks = it; prefs.edit().putBoolean("skip_under_60s", it).apply() })
+                        }
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text("Equalizer", color = fg, fontSize = 12.sp); Text("Open device sound effects and EQ", color = muted, fontSize = 10.sp) }
+                            Icon(Icons.Default.ChevronRight, null, tint = muted)
+                        }
+                        Divider(color = glassStroke)
+                        Text("EQUALIZER · BASS · TREBLE", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Text("Audio effects apply to the active music session.", color = muted, fontSize = 10.sp)
+                        if (equalizer != null) {
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                (0 until equalizer.numberOfPresets.toInt()).forEach { preset ->
+                                    val name = runCatching { equalizer.getPresetName(preset.toShort()).toString() }.getOrDefault("Preset $preset")
+                                    Text(name, color = if (selectedEqPreset == name) Color.White else muted, fontSize = 10.sp,
+                                        modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (selectedEqPreset == name) accent else panel)
+                                            .clickable {
+                                                runCatching { equalizer.usePreset(preset.toShort()) }
+                                                eqBandLevels = (0 until equalizer.numberOfBands.toInt()).map { equalizer.getBandLevel(it.toShort()) / 100f }
+                                                selectedEqPreset = name; prefs.edit().putString("eq_preset", name).apply()
+                                            }.padding(horizontal = 12.dp, vertical = 8.dp))
+                                }
+                                Text("Custom", color = if (selectedEqPreset == "Custom") Color.White else muted, fontSize = 10.sp,
+                                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (selectedEqPreset == "Custom") accent else panel)
+                                        .clickable { selectedEqPreset = "Custom" }.padding(horizontal = 12.dp, vertical = 8.dp))
+                            }
+                            val bandCount = equalizer.numberOfBands.toInt()
+                            val labels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                (0 until minOf(5, bandCount)).forEach { band ->
+                                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        val range = equalizer.bandLevelRange
+                                        val minDb = range[0].toFloat() / 100f
+                                        val maxDb = range[1].toFloat() / 100f
+                                        val value = eqBandLevels.getOrNull(band) ?: 0f
+                                        Slider(value = value.coerceIn(minDb, maxDb), onValueChange = { next ->
+                                            val copy = eqBandLevels.toMutableList()
+                                            if (band < copy.size) copy[band] = next
+                                            eqBandLevels = copy; selectedEqPreset = "Custom"
+                                            prefs.edit().putFloat("eq_band_$band", next).putString("eq_preset", "Custom").apply()
+                                            runCatching { equalizer.setBandLevel(band.toShort(), (next * 100f).toInt().toShort()) }
+                                        }, valueRange = minDb..maxDb, modifier = Modifier.height(126.dp),
+                                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                                        Text(labels.getOrElse(band) { "Band ${band + 1}" }, color = muted, fontSize = 8.sp, maxLines = 1)
+                                        Text(String.format(Locale.getDefault(), "%.1f", value) + " dB", color = fg, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        } else Text("Start playback to enable the equalizer.", color = muted, fontSize = 11.sp)
+                        Column {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Bass Boost", color = fg, fontSize = 11.sp); Text("${bassLevel.toInt() / 10}%", color = accent, fontSize = 11.sp)
+                            }
+                            Slider(value = bassLevel, onValueChange = { bassLevel = it; prefs.edit().putInt("eq_bass", it.toInt()).apply() },
+                                valueRange = 0f..1000f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                        }
+                        Column {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Treble", color = fg, fontSize = 11.sp); Text("${trebleLevel.toInt() / 10}%", color = accent, fontSize = 11.sp)
+                            }
+                            Slider(value = trebleLevel, onValueChange = {
+                                trebleLevel = it; prefs.edit().putInt("eq_treble", it.toInt()).apply()
+                                runCatching {
+                                    val lastBand = (equalizer?.numberOfBands?.toInt() ?: 0) - 1
+                                    if (lastBand >= 0) {
+                                        val range = equalizer!!.bandLevelRange
+                                        val level = (range[0] + (range[1] - range[0]) * (it / 1000f)).toInt().toShort()
+                                        equalizer.setBandLevel(lastBand.toShort(), level)
+                                    }
+                                }
+                                selectedEqPreset = "Custom"
+                            }, valueRange = 0f..1000f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                        }
+                        Column {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("3D / Surround", color = fg, fontSize = 11.sp); Text("${virtualLevel.toInt() / 10}%", color = accent, fontSize = 11.sp)
+                            }
+                            Slider(value = virtualLevel, onValueChange = { virtualLevel = it; prefs.edit().putInt("eq_virtual", it.toInt()).apply() },
+                                valueRange = 0f..1000f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                        }
+                        Text("Reset equalizer", color = accent, fontSize = 11.sp, modifier = Modifier.clickable {
+                            runCatching { equalizer?.usePreset(0) }
+                            eqBandLevels = (0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { 0f }
+                            bassLevel = 0f; trebleLevel = 500f; virtualLevel = 0f; selectedEqPreset = "Custom"
+                            prefs.edit().putInt("eq_bass", 0).putInt("eq_treble", 500).putInt("eq_virtual", 0).putString("eq_preset", "Custom").apply()
                         })
+                        Divider(color = glassStroke)
+                        Text("HOME SCREEN MUSIC WIDGET", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Text("Choose a widget size and pin it directly to your Home screen.", color = muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf("Compact", "Medium", "Large").forEach { mode ->
+                                Text("Add $mode", color = Color.White, fontSize = 10.sp,
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(accent)
+                                        .clickable {
+                                            val provider = when (mode) {
+                                                "Compact" -> ReetCompactWidgetProvider::class.java
+                                                "Large" -> ReetLargeWidgetProvider::class.java
+                                                else -> ReetMusicWidgetProvider::class.java
+                                            }
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                AppWidgetManager.getInstance(context).requestPinAppWidget(ComponentName(context, provider), null, null)
+                                            } else {
+                                                context.startActivity(Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                            }
+                                        }.padding(vertical = 10.dp), textAlign = TextAlign.Center)
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf("Compact", "Medium", "Large").forEach { mode ->
+                                Text(mode, color = if (widgetLayout == mode) Color.White else muted, fontSize = 10.sp,
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(13.dp))
+                                        .background(if (widgetLayout == mode) accent else panel)
+                                        .clickable {
+                                            widgetLayout = mode
+                                            prefs.edit().putString("widget_layout", mode).apply()
+                                            ReetMusicWidgetProvider.updateAll(context)
+                                        }.padding(vertical = 10.dp), textAlign = TextAlign.Center)
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Auto-change Marvel wallpaper", color = fg, fontSize = 12.sp)
+                                Text("Switch background when the song changes", color = muted, fontSize = 10.sp)
+                            }
+                            Switch(checked = widgetAutoWallpaper, onCheckedChange = {
+                                widgetAutoWallpaper = it
+                                prefs.edit().putBoolean("widget_wallpaper_auto", it).apply()
+                                ReetMusicWidgetProvider.updateAll(context)
+                            })
+                        }
+                        if (!widgetAutoWallpaper && wallpaperNames.isNotEmpty()) {
+                            Text("WIDGET BACKGROUND", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            val widgetWallIndex = wallpaperNames.indexOf(widgetWallpaper).let { if (it >= 0) it else 0 }
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("‹", color = accent, fontSize = 26.sp, modifier = Modifier.clickable {
+                                    val next = (widgetWallIndex - 1 + wallpaperNames.size) % wallpaperNames.size
+                                    widgetWallpaper = wallpaperNames[next]
+                                    prefs.edit().putString("widget_wallpaper", widgetWallpaper).apply()
+                                    ReetMusicWidgetProvider.updateAll(context)
+                                }.padding(horizontal = 12.dp, vertical = 6.dp))
+                                Text(wallpaperNames[widgetWallIndex].substringBeforeLast('.').replace('_', ' '),
+                                    color = fg, fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("›", color = accent, fontSize = 26.sp, modifier = Modifier.clickable {
+                                    val next = (widgetWallIndex + 1) % wallpaperNames.size
+                                    widgetWallpaper = wallpaperNames[next]
+                                    prefs.edit().putString("widget_wallpaper", widgetWallpaper).apply()
+                                    ReetMusicWidgetProvider.updateAll(context)
+                                }.padding(horizontal = 12.dp, vertical = 6.dp))
+                            }
+                        } else if (widgetAutoWallpaper) {
+                            Text("31 bundled Marvel-style backgrounds rotate with your songs.", color = muted, fontSize = 10.sp)
+                        }
+                        Divider(color = glassStroke)
+                        Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text("Scan Music Library", color = fg, fontSize = 12.sp); Text("Refresh offline songs", color = muted, fontSize = 10.sp) }
+                            Icon(Icons.Default.ChevronRight, null, tint = muted)
+                        }
+                        Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 11.sp)
+                        Divider(color = glassStroke)
+                        Text("ABOUT", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "about" }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, null, tint = accent); Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text("About Reet Music", color = fg, fontSize = 12.sp); Text("App information and version", color = muted, fontSize = 10.sp) }
+                            Icon(Icons.Default.ChevronRight, null, tint = muted)
+                        }
+                        Text("Offline mode · No streaming or account required.", color = muted, fontSize = 10.sp)
+                        Spacer(Modifier.height(22.dp))
                     }
                 }
-                Divider(color = glassStroke)
-                Text("AUDIO & PLAYBACK", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Skip tracks under 60 seconds", color = fg, fontSize = 11.sp); Text("Automatically skip short audio clips during playback", color = muted, fontSize = 9.sp) }
-                    Switch(checked = skipShortTracks, onCheckedChange = { skipShortTracks = it; prefs.edit().putBoolean("skip_under_60s", it).apply() })
-                }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("Equalizer", color = fg, fontSize = 11.sp); Text("Open device sound effects and EQ", color = muted, fontSize = 9.sp) }
-                    Icon(Icons.Default.ChevronRight, null, tint = muted)
-                }
-                Divider(color = glassStroke)
-                Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Refresh, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("Scan Music Library", color = fg, fontSize = 11.sp); Text("Refresh offline songs", color = muted, fontSize = 9.sp) }
-                    Icon(Icons.Default.ChevronRight, null, tint = muted)
-                }
-                Text("Sort order: " + sort + if (ascending) " ↑" else " ↓", color = fg, fontSize = 10.sp)
-                Divider(color = glassStroke)
-                Text("ABOUT", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "about" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, null, tint = accent); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) { Text("About Reet Music", color = fg, fontSize = 11.sp); Text("App information and version", color = muted, fontSize = 9.sp) }
-                    Icon(Icons.Default.ChevronRight, null, tint = muted)
-                }
-                Text("Offline mode · No streaming or account required.", color = muted, fontSize = 9.sp)
-            } },
-            confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Done", color = accent) } })
+            }
+        }
     }
 }
 
@@ -917,10 +1073,10 @@ private fun CircleAction(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 @Composable
-private fun PlayerTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun PlayerTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, accent: Color = Pink, textColor: Color = SoftText, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.softWhiteTap(onClick).padding(horizontal = 8.dp)) {
-        Icon(icon, null, tint = Pink, modifier = Modifier.size(21.dp))
-        Text(label, color = SoftText, fontSize = 9.sp)
+        Icon(icon, null, tint = accent, modifier = Modifier.size(21.dp))
+        Text(label, color = textColor, fontSize = 9.sp)
     }
 }
 
