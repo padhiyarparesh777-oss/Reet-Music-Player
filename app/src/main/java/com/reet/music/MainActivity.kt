@@ -750,14 +750,27 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             val id = player.getMediaItemAt(index).mediaId
                             songs.firstOrNull { it.id.toString() == id }
                         }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("NOW PLAYING · ${if (player.mediaItemCount == 0) 0 else player.currentMediaItemIndex + 1}/${player.mediaItemCount}", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Add library", color = accent, fontSize = 10.sp, modifier = Modifier.clickable {
+                                val existing = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+                                val additions = songs.filter { it.id.toString() !in existing }.map { song ->
+                                    MediaItem.Builder().setUri(song.uri).setMediaId(song.id.toString())
+                                        .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
+                                            .setAlbumTitle(song.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + song.albumId)).build()).build()
+                                }
+                                if (additions.isNotEmpty()) player.addMediaItems(additions)
+                            })
+                            Text("Clear", color = muted, fontSize = 10.sp, modifier = Modifier.clickable { player.clearMediaItems() })
+                        }
+                        Spacer(Modifier.height(6.dp))
                         LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                            item { Text("NOW PLAYING · ${player.currentMediaItemIndex + 1}/${player.mediaItemCount}", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
                             items(queuedSongs, key = { it.id }) { queued ->
+                                val queueIndex = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == queued.id.toString() } ?: -1
                                 val active = queued.id.toString() == player.currentMediaItem?.mediaId
                                 Row(Modifier.fillMaxWidth().background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
                                     .clickable {
-                                        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == queued.id.toString() } ?: -1
-                                        if (index >= 0) { player.seekTo(index, 0L); player.play(); utility = "" }
+                                        if (queueIndex >= 0) { player.seekTo(queueIndex, 0L); player.play(); utility = "" }
                                     }.padding(vertical = 7.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(if (active) "▶" else "${queuedSongs.indexOf(queued) + 1}", color = if (active) accent else muted, fontSize = 10.sp, modifier = Modifier.width(24.dp))
                                     SongArtwork(queued.albumId, accent, 36); Spacer(Modifier.width(9.dp))
@@ -766,6 +779,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                         Text(queued.artist, color = muted, fontSize = 9.sp, maxLines = 1)
                                     }
                                     Text(formatTime(queued.duration), color = muted, fontSize = 9.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("×", color = muted, fontSize = 18.sp, modifier = Modifier.clickable {
+                                        if (queueIndex >= 0) player.removeMediaItem(queueIndex)
+                                    })
                                 }
                             }
                             if (queuedSongs.isEmpty()) item { Text("Queue is empty. Play a song to get started.", color = muted, fontSize = 11.sp) }
