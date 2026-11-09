@@ -23,6 +23,11 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -283,7 +288,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             .clip(RoundedCornerShape(24.dp))
                              .background(Brush.horizontalGradient(listOf(Color.White.copy(alpha = .22f), panel.copy(alpha = .42f), accent.copy(alpha = .18f), Color.White.copy(alpha = .10f))))
                             .border(1.dp, Color.White.copy(alpha = .34f), RoundedCornerShape(24.dp))
-                            .clickable { showPlayer = true }.padding(horizontal = 11.dp)
+                            .softWhiteTap { showPlayer = true }.padding(horizontal = 11.dp)
                             .animateContentSize(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -344,7 +349,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         Text(when { tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text(visible.size.toString() + if (mediaCategory == "Songs") " tracks · Offline library" else " " + mediaCategory.lowercase(Locale.getDefault()), color = muted, fontSize = 10.sp)
                     }
-                    Text("Sort: $sort", color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(panel.copy(alpha = .65f)).clickable { showSortOptions = true }.padding(horizontal = 10.dp, vertical = 8.dp))
+                    Text("Sort: $sort", color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(panel.copy(alpha = .65f)).softWhiteTap { showSortOptions = true }.padding(horizontal = 10.dp, vertical = 8.dp))
                     CircleAction(Icons.Default.SwapVert, fg, panel, 34) { ascending = !ascending }
                 }
                 Spacer(Modifier.height(9.dp))
@@ -435,7 +440,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 AnimatedVisibility(visible = current != null) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp).height(62.dp).clip(RoundedCornerShape(18.dp))
                           .background(Brush.linearGradient(listOf(Color.White.copy(alpha = .22f), panel.copy(alpha = .42f), accent.copy(alpha = .17f)))).border(1.dp, Color.White.copy(alpha = .32f), RoundedCornerShape(22.dp))
-                        .clickable { showPlayer = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        .softWhiteTap { showPlayer = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         current?.let { SongArtwork(it.albumId, accent, 42) } ?: ArtworkPlaceholder(accent, 42) 
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
@@ -483,7 +488,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Row(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
                             .background(if (selected) Color(0xFFFFD9E6) else Color.White.copy(alpha = .78f))
-                            .clickable { sort = option; prefs.edit().putString("sort", option).apply() }
+                            .softWhiteTap { sort = option; prefs.edit().putString("sort", option).apply() }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -508,7 +513,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 }
                 Text("Done", color = Color.White,
                     modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(50))
-                        .background(Color(0xFFE5558A)).clickable { showSortOptions = false }
+                        .background(Color(0xFFE5558A)).softWhiteTap { showSortOptions = false }
                         .padding(horizontal = 22.dp, vertical = 10.dp),
                     fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
@@ -772,16 +777,51 @@ private fun ArtworkPlaceholder(accent: Color, size: Int) {
     }
 }
 
+/**
+ * Reusable soft white-light press animation for tappable surfaces.
+ * Keeps the existing screen/layout intact while adding a gentle glassy
+ * scale response and a brief white glow on touch.
+ */
+private fun Modifier.softWhiteTap(onClick: () -> Unit): Modifier = composed {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
+        label = "softTapScale"
+    )
+    val glow by animateFloatAsState(
+        targetValue = if (pressed) 0.28f else 0f,
+        animationSpec = tween(if (pressed) 90 else 260),
+        label = "softTapGlow"
+    )
+    this
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .drawWithContent {
+            drawContent()
+            if (glow > 0.01f) {
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.White.copy(alpha = glow), Color.Transparent),
+                        center = Offset(size.width / 2f, size.height / 2f),
+                        radius = size.maxDimension * 0.78f
+                    )
+                )
+            }
+        }
+        .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+}
+
 @Composable
 private fun CircleAction(icon: androidx.compose.ui.graphics.vector.ImageVector, fg: Color, panel: Color, size: Int = 40, onClick: () -> Unit) {
-    Box(Modifier.size(size.dp).clip(CircleShape).background(panel).border(1.dp, Line, CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size.dp).clip(CircleShape).background(panel).border(1.dp, Line, CircleShape).softWhiteTap(onClick), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = fg, modifier = Modifier.size(19.dp))
     }
 }
 
 @Composable
 private fun PlayerTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 8.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.softWhiteTap(onClick).padding(horizontal = 8.dp)) {
         Icon(icon, null, tint = Pink, modifier = Modifier.size(21.dp))
         Text(label, color = SoftText, fontSize = 9.sp)
     }
