@@ -179,7 +179,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var query by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
     var recent by remember { mutableStateOf(prefs.getString("recent", "").orEmpty().split("|").filter { it.isNotBlank() }) }
-    var playlists by remember { mutableStateOf<List<String>>(prefs.getStringSet("playlist_names", emptySet())?.toList()?.sorted() ?: emptyList<String>()) }    var selectedPlaylist by remember { mutableStateOf<String?>(null) }
+    var playlists by remember { mutableStateOf<List<String>>(prefs.getStringSet("playlist_names", emptySet())?.toList()?.sorted() ?: emptyList<String>()) }
+    var selectedPlaylist by remember { mutableStateOf<String?>(null) }
     var playlistDialog by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("") }
     var showPlayer by remember { mutableStateOf(false) }
@@ -368,7 +369,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             ArtworkPlaceholder(accent, 92)
-                            Spacer(Modifier.height(14.dp))                            Text("Your music lives here", color = fg, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(14.dp))
+                            Text("Your music lives here", color = fg, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             Text("Allow access to scan songs stored on your phone.", color = muted, fontSize = 11.sp, textAlign = TextAlign.Center)
                             Spacer(Modifier.height(14.dp))
                             Button(onClick = { permissionLauncher.launch(audioPermission) }, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.White)) { Text("Allow music access") }
@@ -726,7 +728,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             accentName = name; prefs.edit().putString("accent", name).apply()
                         })
                     }
-                }                Divider(color = glassStroke)
+                }
+                Divider(color = glassStroke)
                 Text("Audio & Playback", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
