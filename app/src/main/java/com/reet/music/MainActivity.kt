@@ -194,19 +194,51 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var showSortOptions by remember { mutableStateOf(false) }
     var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", false)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
+    var heroTheme by remember { mutableStateOf(prefs.getString("hero_theme", "Classic") ?: "Classic") }
     var skipShortTracks by remember { mutableStateOf(prefs.getBoolean("skip_under_60s", false)) }
     var lyrics by remember { mutableStateOf("") }
     var lyricsEdit by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
 
-    val accent = when (accentName) {
+    val baseAccent = when (accentName) {
         "Purple" -> Color(0xFFB99AFF)
         "Blue" -> Color(0xFF76BFFF)
         "Red" -> Color(0xFFFF6474)
         "Mint" -> Color(0xFF65DDB5)
         "Gold" -> Color(0xFFE8C16C)
         else -> Pink
+    }
+    val heroAccent = when (heroTheme) {
+        "Spider-Man" -> Color(0xFFFF3448)
+        "Iron Man" -> Color(0xFFFF9A35)
+        "Thor" -> Color(0xFF72B9FF)
+        "Hulk" -> Color(0xFF72D65B)
+        "Black Panther" -> Color(0xFFB18AFF)
+        "Captain America" -> Color(0xFF5E9DFF)
+        "Doctor Strange" -> Color(0xFFFF754C)
+        "Loki" -> Color(0xFF55D6A0)
+        "Deadpool" -> Color(0xFFFF4055)
+        "Captain Marvel" -> Color(0xFFFFC65C)
+        "Venom" -> Color(0xFF9CA7C7)
+        "Wolverine" -> Color(0xFFFFD34E)
+        else -> baseAccent
+    }
+    val accent = heroAccent
+    val heroGlow = when (heroTheme) {
+        "Spider-Man" -> Color(0xFF741B36)
+        "Iron Man" -> Color(0xFF713019)
+        "Thor" -> Color(0xFF183B70)
+        "Hulk" -> Color(0xFF214B28)
+        "Black Panther" -> Color(0xFF302052)
+        "Captain America" -> Color(0xFF1D376B)
+        "Doctor Strange" -> Color(0xFF54251E)
+        "Loki" -> Color(0xFF164A3A)
+        "Deadpool" -> Color(0xFF651D2A)
+        "Captain Marvel" -> Color(0xFF68451D)
+        "Venom" -> Color(0xFF252B3E)
+        "Wolverine" -> Color(0xFF5B4A1B)
+        else -> Color(0xFF17132A)
     }
     val bg = if (lightMode) Color(0xFFFFF7FB) else Charcoal
     val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0xB8171B28)
@@ -271,10 +303,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
       CompositionLocalProvider(LocalIndication provides ripple(color = Color.White.copy(alpha = .48f))) {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else Color(0xFF17132A), bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF10131E))))) {
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else heroGlow, bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF080910))))) {
             // Water-glass atmosphere with soft cyan and violet light blooms.
-            Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background(WaterTint.copy(alpha = if (lightMode) .32f else .24f)).blur(78.dp))
-            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background(Color(0xFF4B3D83).copy(alpha = if (lightMode) .30f else .22f)).blur(82.dp))
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background((if (lightMode) WaterTint else accent).copy(alpha = if (lightMode) .32f else .24f)).blur(78.dp))
+            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background((if (lightMode) Color(0xFFFFC9DC) else heroGlow).copy(alpha = if (lightMode) .30f else .30f)).blur(82.dp))
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -742,6 +774,33 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text("Appearance", color = fg, fontSize = 12.sp); Text("Choose light or dark mode", color = muted, fontSize = 9.sp) }
                     Switch(checked = lightMode, onCheckedChange = { lightMode = it; prefs.edit().putBoolean("light_mode", it).apply() })
+                }
+                Text("MARVEL HERO THEMES", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "Classic" to Color(0xFF8D7BFF), "Spider-Man" to Color(0xFFFF3448),
+                        "Iron Man" to Color(0xFFFF9A35), "Thor" to Color(0xFF72B9FF),
+                        "Hulk" to Color(0xFF72D65B), "Black Panther" to Color(0xFFB18AFF),
+                        "Captain America" to Color(0xFF5E9DFF), "Doctor Strange" to Color(0xFFFF754C),
+                        "Loki" to Color(0xFF55D6A0), "Deadpool" to Color(0xFFFF4055),
+                        "Captain Marvel" to Color(0xFFFFC65C), "Venom" to Color(0xFF9CA7C7),
+                        "Wolverine" to Color(0xFFFFD34E)
+                    ).forEach { (name, color) ->
+                        Column(
+                            Modifier.width(86.dp).clip(RoundedCornerShape(16.dp))
+                                .background(if (heroTheme == name) color.copy(alpha = .24f) else panel)
+                                .border(if (heroTheme == name) 1.5.dp else 1.dp,
+                                    if (heroTheme == name) color else glassStroke, RoundedCornerShape(16.dp))
+                                .clickable { heroTheme = name; prefs.edit().putString("hero_theme", name).apply() }
+                                .padding(horizontal = 9.dp, vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(Modifier.size(24.dp).clip(CircleShape).background(Brush.linearGradient(listOf(color, color.copy(alpha = .35f)))))
+                            Spacer(Modifier.height(6.dp))
+                            Text(name, color = fg, fontSize = 9.sp, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
                 }
                 Text("Accent colour", color = muted, fontSize = 10.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
