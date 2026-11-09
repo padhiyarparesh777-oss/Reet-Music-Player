@@ -64,12 +64,13 @@
         </LinearLayout>
     </LinearLayout>
 
-    <View
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="#26FFFFFF"
         android:layout_marginTop="8dp"
-        android:layout_marginBottom="5dp" />
+        android:layout_marginBottom="5dp"
+        android:text="" />
 
     <LinearLayout
         android:layout_width="match_parent"
