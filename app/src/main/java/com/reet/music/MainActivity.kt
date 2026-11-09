@@ -567,11 +567,30 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Text(song.artist + " · " + song.album, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(58.dp), contentAlignment = Alignment.Center) {
-                        PulsingLines(playing, dynamicAccent, Modifier.fillMaxSize())
+                        val progress = if (duration > 0L) position.coerceIn(0L, duration).toFloat() / duration.toFloat() else 0f
+                        Canvas(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(28.dp)) {
+                            val centerY = size.height / 2f
+                            val startX = 0f
+                            val endX = size.width
+                            val currentX = startX + (endX - startX) * progress
+                            drawLine(Color.White.copy(alpha = .38f), Offset(startX, centerY), Offset(endX, centerY),
+                                strokeWidth = 5.dp.toPx(), cap = StrokeCap.Round)
+                            if (currentX > startX) {
+                                drawLine(dynamicAccent.copy(alpha = .22f), Offset(startX, centerY), Offset(currentX, centerY),
+                                    strokeWidth = 18.dp.toPx(), cap = StrokeCap.Round)
+                                drawLine(dynamicAccent.copy(alpha = .48f), Offset(startX, centerY), Offset(currentX, centerY),
+                                    strokeWidth = 10.dp.toPx(), cap = StrokeCap.Round)
+                                drawLine(dynamicAccent, Offset(startX, centerY), Offset(currentX, centerY),
+                                    strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
+                                drawCircle(dynamicAccent.copy(alpha = .30f), radius = 13.dp.toPx(), center = Offset(currentX, centerY))
+                                drawCircle(dynamicAccent, radius = 5.dp.toPx(), center = Offset(currentX, centerY))
+                            }
+                        }
                         Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f,
                             onValueChange = { position = it.toLong() }, onValueChangeFinished = { player.seekTo(position) },
                             valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
-                            colors = SliderDefaults.colors(thumbColor = dynamicAccent, activeTrackColor = dynamicAccent, inactiveTrackColor = Color.White.copy(alpha = .75f)))
+                            colors = SliderDefaults.colors(thumbColor = dynamicAccent, activeTrackColor = Color.Transparent,
+                                inactiveTrackColor = Color.Transparent, disabledThumbColor = Color.Transparent))
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(formatTime(position), color = muted, fontSize = 10.sp)
