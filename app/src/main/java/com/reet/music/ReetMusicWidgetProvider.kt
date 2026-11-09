@@ -127,7 +127,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
 class WidgetActionReceiver : android.content.BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val service = Intent(context, MusicPlaybackService::class.java).setAction(intent.action)
-        if (android.os.Build.VERSION.SDK_INT >= 26) context.startForegroundService(service) else context.startService(service)
+        context.startService(service)
     }
 
     companion object {
