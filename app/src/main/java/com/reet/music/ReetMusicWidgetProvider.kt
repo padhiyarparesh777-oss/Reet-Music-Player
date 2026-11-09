@@ -54,7 +54,12 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
 
         private fun updateOne(context: Context, manager: AppWidgetManager, id: Int, providerMode: String) {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val views = RemoteViews(context.packageName, R.layout.widget_reet_music)
+            val layoutRes = when (providerMode) {
+                "Compact" -> R.layout.widget_reet_music_compact
+                "Large" -> R.layout.widget_reet_music_large
+                else -> R.layout.widget_reet_music
+            }
+            val views = RemoteViews(context.packageName, layoutRes)
             val title = prefs.getString("widget_song_title", "Reet Music Player") ?: "Reet Music Player"
             val artist = prefs.getString("widget_song_artist", "Your offline music") ?: "Your offline music"
             val playing = prefs.getBoolean("widget_is_playing", false)
@@ -81,16 +86,15 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 90)
             val layoutMode = providerMode
             val compact = layoutMode == "Compact" || minWidth < 190 || minHeight < 82
-            val large = layoutMode == "Large" && minWidth >= 220 && minHeight >= 95
             views.setViewVisibility(R.id.widget_artist, if (compact) android.view.View.GONE else android.view.View.VISIBLE)
             views.setViewVisibility(R.id.widget_favourite, android.view.View.VISIBLE)
-            views.setViewVisibility(R.id.widget_art, if (compact) android.view.View.GONE else android.view.View.VISIBLE)
+            views.setViewVisibility(R.id.widget_art, android.view.View.VISIBLE)
             views.setTextViewText(R.id.widget_title, title)
             try {
                 manager.updateAppWidget(id, views)
             } catch (_: Exception) {
                 // Fallback without image bitmaps so the launcher still gets working controls.
-                val fallback = RemoteViews(context.packageName, R.layout.widget_reet_music)
+                val fallback = RemoteViews(context.packageName, layoutRes)
                 fallback.setTextViewText(R.id.widget_title, title)
                 fallback.setTextViewText(R.id.widget_artist, artist)
                 fallback.setImageViewResource(R.id.widget_play_pause, if (playing) R.drawable.ic_widget_pause else R.drawable.ic_widget_play)
