@@ -573,7 +573,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(playlists) { name ->
                                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(Brush.verticalGradient(listOf(panel.copy(alpha = .95f), panel.copy(alpha = .68f)))).border(1.dp, glassStroke, RoundedCornerShape(15.dp)).clickable { selectedPlaylist = name }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    current?.let { SongArtwork(it.albumId, accent, 42) }
+                                    current?.let { SongArtwork(it.albumId, accent, 42, prefs.getString("custom_art_" + it.id, null)) }
                                     Spacer(Modifier.width(10.dp))
                                     Column(Modifier.weight(1f)) { Text(name, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp); Text("Personal playlist", color = muted, fontSize = 10.sp) }
                                     Icon(Icons.Default.ChevronRight, null, tint = accent)
@@ -619,7 +619,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                         player.prepare(); player.play(); showPlayer = true
                                     }
                                 }.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                                SongArtwork(song.albumId, accent, 42)
+                                SongArtwork(song.albumId, accent, 42, prefs.getString("custom_art_" + song.id, null))
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(when(mediaCategory) { "Albums" -> song.album; "Artists" -> song.artist; "Folders" -> song.folder; else -> song.title }, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -932,7 +932,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                         if (queueIndex >= 0) { player.seekTo(queueIndex, 0L); player.play(); utility = "" }
                                     }.padding(vertical = 7.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(if (active) "▶" else "${queuedSongs.indexOf(queued) + 1}", color = if (active) accent else muted, fontSize = 10.sp, modifier = Modifier.width(24.dp))
-                                    SongArtwork(queued.albumId, accent, 36); Spacer(Modifier.width(9.dp))
+                                    SongArtwork(queued.albumId, accent, 36, prefs.getString("custom_art_" + queued.id, null)); Spacer(Modifier.width(9.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(queued.title, color = if (active) accent else fg, fontSize = 11.sp, maxLines = 1)
                                         Text(queued.artist, color = muted, fontSize = 9.sp, maxLines = 1)
@@ -1240,7 +1240,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                 .background(Brush.linearGradient(listOf(accent.copy(alpha = .25f), panel, Color.Black.copy(alpha = .16f))))
                                 .border(1.dp, glassStroke, RoundedCornerShape(18.dp)).padding(10.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    current?.let { SongArtwork(it.albumId, accent, if (isCompact) 34 else 46) }
+                                    current?.let { SongArtwork(it.albumId, accent, if (isCompact) 34 else 46, prefs.getString("custom_art_" + it.id, null)) }
                                         ?: ArtworkPlaceholder(accent, if (isCompact) 34 else 46)
                                     Spacer(Modifier.width(9.dp))
                                     Column(Modifier.weight(1f)) {
@@ -1391,8 +1391,16 @@ private fun rememberArtwork(albumId: Long): Bitmap? {
 }
 
 @Composable
-private fun SongArtwork(albumId: Long, accent: Color, size: Int) {
-    val bitmap = rememberArtwork(albumId)
+private fun SongArtwork(albumId: Long, accent: Color, size: Int, customArtUri: String? = null) {
+    val context = LocalContext.current
+    val customBitmap by produceState<Bitmap?>(initialValue = null, key1 = customArtUri) {
+        value = withContext(Dispatchers.IO) {
+            if (customArtUri.isNullOrBlank()) null else runCatching {
+                context.contentResolver.openInputStream(Uri.parse(customArtUri))?.use { BitmapFactory.decodeStream(it) }
+            }.getOrNull()
+        }
+    }
+    val bitmap = customBitmap ?: rememberArtwork(albumId)
     if (bitmap != null) {
         androidx.compose.foundation.Image(bitmap.asImageBitmap(), null,
             modifier = Modifier.size(size.dp).clip(RoundedCornerShape((size / 4).coerceAtLeast(8).dp)))
