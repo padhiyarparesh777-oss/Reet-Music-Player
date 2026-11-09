@@ -246,6 +246,12 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var skipShortTracks by remember { mutableStateOf(prefs.getBoolean("skip_under_60s", false)) }
     var lyrics by remember { mutableStateOf("") }
     var lyricsEdit by remember { mutableStateOf(false) }
+    var metadataEdit by remember { mutableStateOf(false) }
+    var metadataTitle by remember { mutableStateOf("") }
+    var metadataArtist by remember { mutableStateOf("") }
+    var metadataAlbum by remember { mutableStateOf("") }
+    var metadataRevision by remember { mutableIntStateOf(0) }
+    var editingSongId by remember { mutableStateOf<Long?>(null) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var wallpaperMode by remember { mutableStateOf(prefs.getString("wallpaper_mode", "AUTO") ?: "AUTO") }
@@ -352,6 +358,18 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                 }
                 context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(content) }
+            }
+        }
+    }
+    val artworkPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val id = editingSongId
+        if (uri != null && id != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            prefs.edit().putString("custom_art_$id", uri.toString()).apply()
+            metadataRevision++
+            if (current?.id == id) {
+                prefs.edit().putString("widget_art_uri", uri.toString()).apply()
+                ReetMusicWidgetProvider.updateAll(context)
             }
         }
     }
@@ -647,8 +665,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         current?.let { SongArtwork(it.albumId, accent, 42) } ?: ArtworkPlaceholder(accent, 42) 
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(current?.title.orEmpty(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(current?.artist.orEmpty(), color = muted, fontSize = 9.sp, maxLines = 1)
+                            Text(current?.let { prefs.getString("meta_title_" + it.id, it.title) ?: it.title }.orEmpty(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(current?.let { prefs.getString("meta_artist_" + it.id, it.artist) ?: it.artist }.orEmpty(), color = muted, fontSize = 9.sp, maxLines = 1)
                         }
                         IconButton(onClick = { if (playing) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = accent) }
                         IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.QueueMusic, null, tint = fg) }
@@ -756,8 +774,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.MoreVert, "More options", tint = fg) }
                     }
                     Spacer(Modifier.weight(1f))
-                    Text(song.title, color = fg, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(song.artist + " · " + song.album, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(prefs.getString("meta_title_" + song.id, song.title) ?: song.title, color = fg, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text((prefs.getString("meta_artist_" + song.id, song.artist) ?: song.artist) + " · " + (prefs.getString("meta_album_" + song.id, song.album) ?: song.album), color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(58.dp), contentAlignment = Alignment.Center) {
                         val progress = if (duration > 0L) position.coerceIn(0L, duration).toFloat() / duration.toFloat() else 0f
@@ -815,6 +833,15 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        PlayerTool(Icons.Default.Edit, "Edit", dynamicAccent, fg) {
+                            current?.let { song ->
+                                editingSongId = song.id
+                                metadataTitle = prefs.getString("meta_title_" + song.id, song.title) ?: song.title
+                                metadataArtist = prefs.getString("meta_artist_" + song.id, song.artist) ?: song.artist
+                                metadataAlbum = prefs.getString("meta_album_" + song.id, song.album) ?: song.album
+                                metadataEdit = true
+                            }
+                        }
                         PlayerTool(Icons.Default.QueueMusic, "Queue", dynamicAccent, fg) { utility = "queue" }
                         PlayerTool(Icons.Default.Description, "Lyrics", dynamicAccent, fg) { utility = "lyrics" }
                         PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent, fg) { utility = ""; showSettings = true }
@@ -985,6 +1012,51 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             confirmButton = { TextButton(onClick = { showSleepTimer = false }) { Text("Close", color = accent) } }
         )
     }
+    if (metadataEdit && current != null) {
+        AlertDialog(
+            onDismissRequest = { metadataEdit = false },
+            containerColor = panel,
+            title = { Text("Edit song details", color = fg) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    OutlinedTextField(value = metadataTitle, onValueChange = { metadataTitle = it }, singleLine = true, label = { Text("Song title") })
+                    OutlinedTextField(value = metadataArtist, onValueChange = { metadataArtist = it }, singleLine = true, label = { Text("Artist") })
+                    OutlinedTextField(value = metadataAlbum, onValueChange = { metadataAlbum = it }, singleLine = true, label = { Text("Album") })
+                    Text("Choose custom album artwork", color = accent, modifier = Modifier.clickable { artworkPicker.launch(arrayOf("image/*")) }.padding(vertical = 8.dp))
+                    Text("These edits are saved inside Reet Music; original audio tags are unchanged.", color = muted, fontSize = 10.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = editingSongId
+                    if (id != null) {
+                        val song = current!!
+                        val title = metadataTitle.trim().ifBlank { song.title }
+                        val artist = metadataArtist.trim().ifBlank { song.artist }
+                        val album = metadataAlbum.trim().ifBlank { song.album }
+                        prefs.edit().putString("meta_title_" + id, title)
+                            .putString("meta_artist_" + id, artist)
+                            .putString("meta_album_" + id, album).apply()
+                        metadataRevision++
+                        val art = prefs.getString("custom_art_" + id, null)?.let { Uri.parse(it) }
+                            ?: Uri.parse("content://media/external/audio/albumart/" + song.albumId)
+                        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == id.toString() } ?: -1
+                        if (index >= 0) {
+                            val item = MediaItem.Builder().setUri(song.uri).setMediaId(id.toString())
+                                .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setArtist(artist).setAlbumTitle(album).setArtworkUri(art).build()).build()
+                            player.replaceMediaItem(index, item)
+                        }
+                        prefs.edit().putString("widget_song_title", title).putString("widget_song_artist", artist)
+                            .putString("widget_art_uri", art.toString()).apply()
+                        ReetMusicWidgetProvider.updateAll(context)
+                    }
+                    metadataEdit = false
+                }) { Text("Save", color = accent) }
+            },
+            dismissButton = { TextButton(onClick = { metadataEdit = false }) { Text("Cancel", color = muted) } }
+        )
+    }
+
     if (lyricsEdit && current != null) {
         var draft by remember(current?.id) { mutableStateOf(lyrics) }
         AlertDialog(onDismissRequest = { lyricsEdit = false }, containerColor = panel,
