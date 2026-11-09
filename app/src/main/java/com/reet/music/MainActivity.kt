@@ -209,6 +209,9 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var wallpaperNames by remember { mutableStateOf(emptyList<String>()) }
     var fixedWallpaper by remember { mutableStateOf(prefs.getString("fixed_wallpaper", "") ?: "") }
     var wallpaperIndex by remember { mutableIntStateOf(0) }
+    var widgetLayout by remember { mutableStateOf(prefs.getString("widget_layout", "Medium") ?: "Medium") }
+    var widgetAutoWallpaper by remember { mutableStateOf(prefs.getBoolean("widget_wallpaper_auto", true)) }
+    var widgetWallpaper by remember { mutableStateOf(prefs.getString("widget_wallpaper", "") ?: "") }
     val audioSessionId = MusicPlaybackService.audioSessionId
     val equalizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Equalizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
     val bassBoost = remember(audioSessionId) { runCatching { if (audioSessionId > 0) BassBoost(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
@@ -868,6 +871,54 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             bassLevel = 0f; virtualLevel = 0f; selectedEqPreset = "Custom"
                             prefs.edit().putInt("eq_bass", 0).putInt("eq_virtual", 0).putString("eq_preset", "Custom").apply()
                         })
+                        Divider(color = glassStroke)
+                        Text("HOME SCREEN MUSIC WIDGET", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Text("Choose how your Reet widget looks. Add it from your phone Home screen → Widgets → Reet Music.", color = muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf("Compact", "Medium", "Large").forEach { mode ->
+                                Text(mode, color = if (widgetLayout == mode) Color.White else muted, fontSize = 10.sp,
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(13.dp))
+                                        .background(if (widgetLayout == mode) accent else panel)
+                                        .clickable {
+                                            widgetLayout = mode
+                                            prefs.edit().putString("widget_layout", mode).apply()
+                                            ReetMusicWidgetProvider.updateAll(context)
+                                        }.padding(vertical = 10.dp), textAlign = TextAlign.Center)
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Auto-change Marvel wallpaper", color = fg, fontSize = 12.sp)
+                                Text("Switch background when the song changes", color = muted, fontSize = 10.sp)
+                            }
+                            Switch(checked = widgetAutoWallpaper, onCheckedChange = {
+                                widgetAutoWallpaper = it
+                                prefs.edit().putBoolean("widget_wallpaper_auto", it).apply()
+                                ReetMusicWidgetProvider.updateAll(context)
+                            })
+                        }
+                        if (!widgetAutoWallpaper && wallpaperNames.isNotEmpty()) {
+                            Text("WIDGET BACKGROUND", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            val widgetWallIndex = wallpaperNames.indexOf(widgetWallpaper).let { if (it >= 0) it else 0 }
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("‹", color = accent, fontSize = 26.sp, modifier = Modifier.clickable {
+                                    val next = (widgetWallIndex - 1 + wallpaperNames.size) % wallpaperNames.size
+                                    widgetWallpaper = wallpaperNames[next]
+                                    prefs.edit().putString("widget_wallpaper", widgetWallpaper).apply()
+                                    ReetMusicWidgetProvider.updateAll(context)
+                                }.padding(horizontal = 12.dp, vertical = 6.dp))
+                                Text(wallpaperNames[widgetWallIndex].substringBeforeLast('.').replace('_', ' '),
+                                    color = fg, fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("›", color = accent, fontSize = 26.sp, modifier = Modifier.clickable {
+                                    val next = (widgetWallIndex + 1) % wallpaperNames.size
+                                    widgetWallpaper = wallpaperNames[next]
+                                    prefs.edit().putString("widget_wallpaper", widgetWallpaper).apply()
+                                    ReetMusicWidgetProvider.updateAll(context)
+                                }.padding(horizontal = 12.dp, vertical = 6.dp))
+                            }
+                        } else if (widgetAutoWallpaper) {
+                            Text("31 bundled Marvel-style backgrounds rotate with your songs.", color = muted, fontSize = 10.sp)
+                        }
                         Divider(color = glassStroke)
                         Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
