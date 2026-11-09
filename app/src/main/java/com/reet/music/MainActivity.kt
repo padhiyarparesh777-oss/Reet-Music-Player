@@ -726,21 +726,39 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         }
                     }
                 }
-                AnimatedVisibility(visible = current != null) {
-                    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp).height(62.dp).clip(RoundedCornerShape(18.dp))
-                          .background(Brush.linearGradient(listOf(Color.White.copy(alpha = .22f), panel.copy(alpha = .42f), accent.copy(alpha = .17f)))).border(1.dp, Color.White.copy(alpha = .32f), RoundedCornerShape(22.dp))
-                        .softWhiteTap { showPlayer = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        current?.let { SongArtwork(it.albumId, accent, 42) } ?: ArtworkPlaceholder(accent, 42) 
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(current?.let { prefs.getString("meta_title_" + it.id, it.title) ?: it.title }.orEmpty(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(current?.let { prefs.getString("meta_artist_" + it.id, it.artist) ?: it.artist }.orEmpty(), color = muted, fontSize = 9.sp, maxLines = 1)
-                        }
-                        IconButton(onClick = { if (playing) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = accent) }
-                        IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.QueueMusic, null, tint = fg) }
-                    }
-                }
                 Spacer(Modifier.height(5.dp))
+            }
+            AnimatedVisibility(
+                visible = current != null,
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
+                enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) + fadeIn(tween(220)),
+                exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }, animationSpec = tween(180)) + fadeOut(tween(140))
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().height(72.dp).shadow(22.dp, RoundedCornerShape(22.dp))
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Brush.linearGradient(listOf(Color.White.copy(alpha = .20f), panel.copy(alpha = .88f), accent.copy(alpha = .22f))))
+                        .border(1.dp, Color.White.copy(alpha = .34f), RoundedCornerShape(22.dp))
+                        .softWhiteTap { showPlayer = true }.padding(horizontal = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    current?.let { SongArtwork(it.albumId, accent, 48, prefs.getString("custom_art_" + it.id, null)) } ?: ArtworkPlaceholder(accent, 48)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f).clickable { showPlayer = true }) {
+                        Text(current?.let { prefs.getString("meta_title_" + it.id, it.title) ?: it.title }.orEmpty(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(current?.let { prefs.getString("meta_artist_" + it.id, it.artist) ?: it.artist }.orEmpty(), color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = fg) }
+                    IconButton(onClick = { if (playing) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.PauseCircleFilled else Icons.Default.PlayCircleFilled, "Play or pause", tint = accent, modifier = Modifier.size(29.dp)) }
+                    IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, "Next", tint = fg) }
+                    IconButton(onClick = {
+                        current?.let { song ->
+                            val key = song.id.toString()
+                            favorites = if (favorites.contains(key)) favorites - key else favorites + key
+                            prefs.edit().putStringSet("favorites", favorites).apply()
+                        }
+                    }) { Icon(if (current?.let { favorites.contains(it.id.toString()) } == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Favourite", tint = accent) }
+                }
             }
         }
       }
