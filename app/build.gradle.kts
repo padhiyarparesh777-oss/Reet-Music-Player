@@ -14,8 +14,8 @@ android {
         applicationId = "com.reet.music"
         minSdk = 24
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.3.9"
+        versionCode = 14
+        versionName = "1.4.0"
     }
 
     signingConfigs {
@@ -31,6 +31,12 @@ android {
 
     buildTypes {
         getByName("debug") {
+            if (!persistentKeystorePath.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("persistent")
+            }
+        }
+        getByName("release") {
+            isMinifyEnabled = false
             if (!persistentKeystorePath.isNullOrBlank()) {
                 signingConfig = signingConfigs.getByName("persistent")
             }
