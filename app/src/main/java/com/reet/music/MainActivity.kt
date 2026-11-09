@@ -216,7 +216,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var bassLevel by remember { mutableFloatStateOf(prefs.getInt("eq_bass", 0).toFloat()) }
     var virtualLevel by remember { mutableFloatStateOf(prefs.getInt("eq_virtual", 0).toFloat()) }
     var selectedEqPreset by remember { mutableStateOf(prefs.getString("eq_preset", "Custom") ?: "Custom") }
-    var eqBandLevels by remember(audioSessionId) { mutableStateOf((0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { index -> runCatching { (equalizer?.getBandLevel(index.toShort()) ?: 0).toFloat() / 100f }.getOrDefault(0f) }) }
+    var eqBandLevels by remember(audioSessionId) { mutableStateOf((0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { index -> runCatching { prefs.getFloat("eq_band_$index", (equalizer?.getBandLevel(index.toShort()) ?: 0).toFloat() / 100f) }.getOrDefault(0f) }) }
     DisposableEffect(equalizer, bassBoost, virtualizer) {
         onDispose { runCatching { equalizer?.release() }; runCatching { bassBoost?.release() }; runCatching { virtualizer?.release() } }
     }
@@ -838,6 +838,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                             val copy = eqBandLevels.toMutableList()
                                             if (band < copy.size) copy[band] = next
                                             eqBandLevels = copy; selectedEqPreset = "Custom"
+                                            prefs.edit().putFloat("eq_band_$band", next).putString("eq_preset", "Custom").apply()
                                             runCatching { equalizer.setBandLevel(band.toShort(), (next * 100f).toInt().toShort()) }
                                         }, valueRange = minDb..maxDb, modifier = Modifier.height(126.dp),
                                             colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
