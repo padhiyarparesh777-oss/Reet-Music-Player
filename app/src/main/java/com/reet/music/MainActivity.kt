@@ -37,6 +37,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -291,6 +292,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     Spacer(Modifier.width(8.dp))
                     CircleAction(Icons.Default.NotificationsNone, fg, panel) { scan() }
+                    Spacer(Modifier.width(8.dp))
+                    CircleAction(Icons.Default.Settings, fg, panel) { showSettings = true }
                 }
                 AnimatedVisibility(visible = current != null, enter = androidx.compose.animation.fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(260)), exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(180))) {
                     Row(
