@@ -526,6 +526,18 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                 }
                                 Text(formatTime(song.duration), color = muted, fontSize = 9.sp)
                                 Spacer(Modifier.width(5.dp))
+                                Icon(Icons.Default.PlaylistAdd, "Play next", tint = accent, modifier = Modifier.size(18.dp).clickable {
+                                    val item = MediaItem.Builder().setUri(song.uri).setMediaId(song.id.toString())
+                                        .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
+                                            .setAlbumTitle(song.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + song.albumId)).build()).build()
+                                    val exists = (0 until player.mediaItemCount).any { player.getMediaItemAt(it).mediaId == song.id.toString() }
+                                    if (exists) {
+                                        val oldIndex = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == song.id.toString() } ?: -1
+                                        if (oldIndex >= 0) player.removeMediaItem(oldIndex)
+                                    }
+                                    val nextIndex = if (player.mediaItemCount == 0) 0 else (player.currentMediaItemIndex + 1).coerceIn(0, player.mediaItemCount)
+                                    player.addMediaItem(nextIndex, item)
+                                })
                                 Icon(if (favorites.contains(song.id.toString())) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null,
                                     tint = if (favorites.contains(song.id.toString())) accent else muted,
                                     modifier = Modifier.size(17.dp).clickable {
