@@ -99,6 +99,7 @@ import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 private val Pink = Color(0xFFFF8DBB)
@@ -185,6 +186,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val context = LocalContext.current
+    val scanScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("reet_library", android.content.Context.MODE_PRIVATE) }
     val haptic = LocalHapticFeedback.current
     var songs by remember { mutableStateOf(emptyList<Song>()) }
@@ -291,7 +293,12 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val fg = if (lightMode) Color(0xFF17131A) else wallpaperPalette.second
     val muted = if (lightMode) Color(0xFF514A55) else fg.copy(alpha = .72f)
     val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-    fun scan() { songs = loadSongs() }
+    fun scan() {
+        scanScope.launch {
+            val library = withContext(Dispatchers.IO) { loadSongs() }
+            songs = library
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         permission = it
         if (it) scan()
@@ -344,7 +351,13 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             "Length" -> found.sortedBy { it.duration }
             else -> found.sortedBy { it.title.lowercase(Locale.getDefault()) }
         }
-        if (ascending) ordered else ordered.reversed()
+        val sorted = if (ascending) ordered else ordered.reversed()
+        when (mediaCategory) {
+            "Albums" -> sorted.distinctBy { it.album.trim().lowercase(Locale.getDefault()) }
+            "Artists" -> sorted.distinctBy { it.artist.trim().lowercase(Locale.getDefault()) }
+            "Folders" -> sorted.distinctBy { it.folder.trim().lowercase(Locale.getDefault()) }
+            else -> sorted
+        }
     }
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
@@ -476,15 +489,21 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
-                                    val index = songs.indexOfFirst { it.id == song.id }
-                                    player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index.coerceAtLeast(0), 0L)
+                                    val queueSongs = when (mediaCategory) {
+                                        "Albums" -> source.filter { it.album == song.album }
+                                        "Artists" -> source.filter { it.artist == song.artist }
+                                        "Folders" -> source.filter { it.folder == song.folder }
+                                        else -> source
+                                    }
+                                    val index = queueSongs.indexOfFirst { it.id == song.id }
+                                    player.setMediaItems(queueSongs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index.coerceAtLeast(0), 0L)
                                     player.prepare(); player.play(); showPlayer = true
                                 }.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                                 SongArtwork(song.albumId, accent, 42)
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(when(mediaCategory) { "Albums" -> song.album; "Artists" -> song.artist; "Folders" -> song.folder; else -> song.title }, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(if (mediaCategory == "Songs") song.artist + " · " + song.album else songs.count { when(mediaCategory) { "Albums" -> it.album == song.album; "Artists" -> it.artist == song.artist; else -> it.folder == song.folder } }.toString() + " tracks", color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(if (mediaCategory == "Songs") song.artist + " · " + song.album else source.count { when(mediaCategory) { "Albums" -> it.album == song.album; "Artists" -> it.artist == song.artist; else -> it.folder == song.folder } }.toString() + " tracks", color = muted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Text(formatTime(song.duration), color = muted, fontSize = 9.sp)
                                 Spacer(Modifier.width(5.dp))
