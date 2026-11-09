@@ -1,6 +1,8 @@
 package com.reet.music
 
 import android.Manifest
+import android.app.Activity
+import android.content.ContentValues
 import android.appwidget.AppWidgetManager
 import android.content.pm.PackageManager
 import android.content.ComponentName
@@ -18,6 +20,7 @@ import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
@@ -253,6 +256,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var metadataRevision by remember { mutableIntStateOf(0) }
     val metadataRefresh = metadataRevision
     var editingSongId by remember { mutableStateOf<Long?>(null) }
+    var pendingTagValues by remember { mutableStateOf<Map<String, String>?>(null) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var wallpaperMode by remember { mutableStateOf(prefs.getString("wallpaper_mode", "AUTO") ?: "AUTO") }
@@ -379,6 +383,44 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 }
                 prefs.edit().putString("widget_art_uri", uri.toString()).apply()
                 ReetMusicWidgetProvider.updateAll(context)
+            }
+        }
+    }
+
+    fun persistSongMetadata(id: Long, title: String, artist: String, album: String) {
+        val song = songs.firstOrNull { it.id == id } ?: current?.takeIf { it.id == id } ?: return
+        prefs.edit().putString("meta_title_$id", title).putString("meta_artist_$id", artist)
+            .putString("meta_album_$id", album).apply()
+        metadataRevision++
+        val art = prefs.getString("custom_art_$id", null)?.let { Uri.parse(it) }
+            ?: Uri.parse("content://media/external/audio/albumart/${song.albumId}")
+        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == id.toString() } ?: -1
+        if (index >= 0) {
+            val item = MediaItem.Builder().setUri(song.uri).setMediaId(id.toString())
+                .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setArtist(artist).setAlbumTitle(album).setArtworkUri(art).build()).build()
+            player.replaceMediaItem(index, item)
+        }
+        prefs.edit().putString("widget_song_title", title).putString("widget_song_artist", artist)
+            .putString("widget_art_uri", art.toString()).apply()
+        ReetMusicWidgetProvider.updateAll(context)
+    }
+    val writeTagsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val pending = pendingTagValues
+        pendingTagValues = null
+        if (result.resultCode == Activity.RESULT_OK && pending != null) {
+            val id = pending["id"]?.toLongOrNull()
+            val song = songs.firstOrNull { it.id == id }
+            if (id != null && song != null) {
+                runCatching {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Audio.Media.TITLE, pending["title"])
+                        put(MediaStore.Audio.Media.ARTIST, pending["artist"])
+                        put(MediaStore.Audio.Media.ALBUM, pending["album"])
+                    }
+                    context.contentResolver.update(song.uri, values, null, null)
+                }
+                persistSongMetadata(id, pending["title"].orEmpty(), pending["artist"].orEmpty(), pending["album"].orEmpty())
+                metadataEdit = false
             }
         }
     }
@@ -1046,34 +1088,32 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     OutlinedTextField(value = metadataArtist, onValueChange = { metadataArtist = it }, singleLine = true, label = { Text("Artist") })
                     OutlinedTextField(value = metadataAlbum, onValueChange = { metadataAlbum = it }, singleLine = true, label = { Text("Album") })
                     Text("Choose custom album artwork", color = accent, modifier = Modifier.clickable { artworkPicker.launch(arrayOf("image/*")) }.padding(vertical = 8.dp))
-                    Text("These edits are saved inside Reet Music; original audio tags are unchanged.", color = muted, fontSize = 10.sp)
+                    Text(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) "Android will ask permission to update the audio file tags. If access is unavailable, edits stay inside Reet Music." else "On this Android version, edits are saved inside Reet Music; original audio tags are unchanged.", color = muted, fontSize = 10.sp)
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     val id = editingSongId
-                    if (id != null) {
-                        val song = current!!
+                    val song = current
+                    if (id != null && song != null) {
                         val title = metadataTitle.trim().ifBlank { song.title }
                         val artist = metadataArtist.trim().ifBlank { song.artist }
                         val album = metadataAlbum.trim().ifBlank { song.album }
-                        prefs.edit().putString("meta_title_" + id, title)
-                            .putString("meta_artist_" + id, artist)
-                            .putString("meta_album_" + id, album).apply()
-                        metadataRevision++
-                        val art = prefs.getString("custom_art_" + id, null)?.let { Uri.parse(it) }
-                            ?: Uri.parse("content://media/external/audio/albumart/" + song.albumId)
-                        val index = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == id.toString() } ?: -1
-                        if (index >= 0) {
-                            val item = MediaItem.Builder().setUri(song.uri).setMediaId(id.toString())
-                                .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setArtist(artist).setAlbumTitle(album).setArtworkUri(art).build()).build()
-                            player.replaceMediaItem(index, item)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && song.uri.scheme == "content") {
+                            pendingTagValues = mapOf("id" to id.toString(), "title" to title, "artist" to artist, "album" to album)
+                            runCatching {
+                                val request = MediaStore.createWriteRequest(context.contentResolver, listOf(song.uri))
+                                writeTagsLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                            }.onFailure {
+                                pendingTagValues = null
+                                persistSongMetadata(id, title, artist, album)
+                                metadataEdit = false
+                            }
+                        } else {
+                            persistSongMetadata(id, title, artist, album)
+                            metadataEdit = false
                         }
-                        prefs.edit().putString("widget_song_title", title).putString("widget_song_artist", artist)
-                            .putString("widget_art_uri", art.toString()).apply()
-                        ReetMusicWidgetProvider.updateAll(context)
-                    }
-                    metadataEdit = false
+                    } else metadataEdit = false
                 }) { Text("Save", color = accent) }
             },
             dismissButton = { TextButton(onClick = { metadataEdit = false }) { Text("Cancel", color = muted) } }
