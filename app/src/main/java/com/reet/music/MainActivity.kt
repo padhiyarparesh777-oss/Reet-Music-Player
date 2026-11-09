@@ -194,6 +194,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var showSortOptions by remember { mutableStateOf(false) }
     var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", true)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
+    var skipShortTracks by remember { mutableStateOf(prefs.getBoolean("skip_under_60s", false)) }
     var lyrics by remember { mutableStateOf("") }
     var lyricsEdit by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
@@ -227,6 +228,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 current?.let { s ->
                     recent = (listOf(s.id.toString()) + recent.filterNot { it == s.id.toString() }).take(100)
                     prefs.edit().putString("recent", recent.joinToString("|")).apply()
+                    if (skipShortTracks && s.duration in 1L..59_999L) player.seekToNextMediaItem()
                 }
             }
         }
