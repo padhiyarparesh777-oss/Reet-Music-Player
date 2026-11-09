@@ -200,6 +200,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var recent by remember { mutableStateOf(prefs.getString("recent", "").orEmpty().split("|").filter { it.isNotBlank() }) }
     var playlists by remember { mutableStateOf<List<String>>(prefs.getStringSet("playlist_names", emptySet())?.toList()?.sorted() ?: emptyList<String>()) }
     var selectedPlaylist by remember { mutableStateOf<String?>(null) }
+    var selectedGroup by remember { mutableStateOf<String?>(null) }
     var playlistDialog by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("") }
     var showPlayer by remember { mutableStateOf(false) }
@@ -350,8 +351,9 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         }
         else -> songs
     }
-    val visible = remember(source, query, sort, ascending, mediaCategory) {
-        val found = source.filter { query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true) || it.album.contains(query, true) }
+    val visible = remember(source, query, sort, ascending, mediaCategory, selectedGroup) {
+        val groupedSource = if (selectedGroup == null) source else source.filter { song -> when (mediaCategory) { "Albums" -> song.album == selectedGroup; "Artists" -> song.artist == selectedGroup; "Folders" -> song.folder == selectedGroup; else -> true } }
+        val found = groupedSource.filter { query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true) || it.album.contains(query, true) }
         val ordered = when (sort) {
             "Artist" -> found.sortedBy { it.artist.lowercase(Locale.getDefault()) }
             "Album" -> found.sortedBy { it.album.lowercase(Locale.getDefault()) }
@@ -362,9 +364,9 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         }
         val sorted = if (ascending) ordered else ordered.reversed()
         when (mediaCategory) {
-            "Albums" -> sorted.distinctBy { it.album.trim().lowercase(Locale.getDefault()) }
-            "Artists" -> sorted.distinctBy { it.artist.trim().lowercase(Locale.getDefault()) }
-            "Folders" -> sorted.distinctBy { it.folder.trim().lowercase(Locale.getDefault()) }
+            "Albums" -> if (selectedGroup == null) sorted.distinctBy { it.album.trim().lowercase(Locale.getDefault()) } else sorted
+            "Artists" -> if (selectedGroup == null) sorted.distinctBy { it.artist.trim().lowercase(Locale.getDefault()) } else sorted
+            "Folders" -> if (selectedGroup == null) sorted.distinctBy { it.folder.trim().lowercase(Locale.getDefault()) } else sorted
             else -> sorted
         }
     }
@@ -414,6 +416,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                 .border(1.dp, if (selected) accent else glassStroke, RoundedCornerShape(18.dp))
                                 .softWhiteTap {
                                     mediaCategory = category
+                                    selectedGroup = null
                                     selectedPlaylist = null
                                     tab = if (category == "Favourites") "Favourites" else "Home"
                                 }
@@ -442,7 +445,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(when { mediaCategory == "New" -> "Recently added"; mediaCategory == "Favourites" || tab == "Favourites" -> "Your favourites"; tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (selectedGroup != null) Text("‹ Back", color = accent, fontSize = 11.sp, modifier = Modifier.clickable { selectedGroup = null }.padding(end = 10.dp))
+                        Text(when { selectedGroup != null -> selectedGroup!!; mediaCategory == "New" -> "Recently added"; mediaCategory == "Albums" -> "Albums"; mediaCategory == "Artists" -> "Artists"; mediaCategory == "Folders" -> "Folders"; mediaCategory == "Favourites" || tab == "Favourites" -> "Your favourites"; tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
                     }
                 }
                 Spacer(Modifier.height(9.dp))
@@ -497,16 +503,20 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                 .background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    current = song
-                                    val queueSongs = when (mediaCategory) {
-                                        "Albums" -> source.filter { it.album == song.album }
-                                        "Artists" -> source.filter { it.artist == song.artist }
-                                        "Folders" -> source.filter { it.folder == song.folder }
-                                        else -> source
+                                    if (mediaCategory in listOf("Albums", "Artists", "Folders") && selectedGroup == null) {
+                                        selectedGroup = when (mediaCategory) { "Albums" -> song.album; "Artists" -> song.artist; else -> song.folder }
+                                    } else {
+                                        current = song
+                                        val queueSongs = when (mediaCategory) {
+                                            "Albums" -> source.filter { it.album == song.album }
+                                            "Artists" -> source.filter { it.artist == song.artist }
+                                            "Folders" -> source.filter { it.folder == song.folder }
+                                            else -> source
+                                        }
+                                        val index = queueSongs.indexOfFirst { it.id == song.id }
+                                        player.setMediaItems(queueSongs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index.coerceAtLeast(0), 0L)
+                                        player.prepare(); player.play(); showPlayer = true
                                     }
-                                    val index = queueSongs.indexOfFirst { it.id == song.id }
-                                    player.setMediaItems(queueSongs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index.coerceAtLeast(0), 0L)
-                                    player.prepare(); player.play(); showPlayer = true
                                 }.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                                 SongArtwork(song.albumId, accent, 42)
                                 Spacer(Modifier.width(10.dp))
@@ -779,7 +789,14 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                         Text(queued.artist, color = muted, fontSize = 9.sp, maxLines = 1)
                                     }
                                     Text(formatTime(queued.duration), color = muted, fontSize = 9.sp)
-                                    Spacer(Modifier.width(8.dp))
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("↑", color = muted, fontSize = 14.sp, modifier = Modifier.clickable {
+                                        if (queueIndex > 0) player.moveMediaItem(queueIndex, queueIndex - 1)
+                                    })
+                                    Text("↓", color = muted, fontSize = 14.sp, modifier = Modifier.clickable {
+                                        if (queueIndex >= 0 && queueIndex < player.mediaItemCount - 1) player.moveMediaItem(queueIndex, queueIndex + 1)
+                                    })
+                                    Spacer(Modifier.width(5.dp))
                                     Text("×", color = muted, fontSize = 18.sp, modifier = Modifier.clickable {
                                         if (queueIndex >= 0) player.removeMediaItem(queueIndex)
                                     })
