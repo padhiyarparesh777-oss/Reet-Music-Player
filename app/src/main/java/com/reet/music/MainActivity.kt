@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -237,13 +238,31 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         "Gold" -> Color(0xFFE8C16C)
         else -> Pink
     }
-    val accent = baseAccent
     val heroGlow = Color(0xFF17132A)
     val bg = if (lightMode) Color(0xFFFFF7FB) else Charcoal
     val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0xB8171B28)
-    val glassStroke = if (lightMode) Color.White.copy(alpha = .96f) else Color.White.copy(alpha = .22f)
-    val fg = if (lightMode) Color(0xFF211A20) else Color(0xFFF5F4FA)
-    val muted = if (lightMode) Color(0xFF817680) else SoftText
+    val glassStroke = if (lightMode) Color.White.copy(alpha = .70f) else Color.White.copy(alpha = .16f)
+    val selectedWallpaperForTheme = when (wallpaperMode) {
+        "AUTO" -> wallpaperNames.getOrNull(wallpaperIndex)
+        "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
+        else -> null
+    }
+    val wallpaperPalette by produceState(initialValue = Triple(baseAccent, Color.White, false), key1 = selectedWallpaperForTheme, key2 = baseAccent, key3 = lightMode) {
+        value = withContext(Dispatchers.IO) {
+            if (lightMode || selectedWallpaperForTheme == null) Triple(baseAccent, Color.White, false)
+            else runCatching {
+                val bitmap = context.assets.open("backgrounds/$selectedWallpaperForTheme").use { BitmapFactory.decodeStream(it) }
+                val palette = bitmap?.let { Palette.from(it).generate() }
+                val swatch = palette?.vibrantSwatch ?: palette?.dominantSwatch ?: palette?.mutedSwatch
+                val sampled = swatch?.rgb?.let { Color(it) } ?: baseAccent
+                val isBright = sampled.luminance() > .56f
+                Triple(sampled, if (isBright) Color(0xFF11131A) else Color.White, isBright)
+            }.getOrDefault(Triple(baseAccent, Color.White, false))
+        }
+    }
+    val accent = wallpaperPalette.first
+    val fg = if (lightMode) Color(0xFF17131A) else wallpaperPalette.second
+    val muted = if (lightMode) Color(0xFF514A55) else fg.copy(alpha = .72f)
     val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
     fun scan() { songs = loadSongs() }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -304,11 +323,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
       CompositionLocalProvider(LocalIndication provides ripple(color = Color.White.copy(alpha = .48f))) {
         Box(Modifier.fillMaxSize().background(bg)) {
-            val selectedWallpaper = when (wallpaperMode) {
-                "AUTO" -> wallpaperNames.getOrNull(wallpaperIndex)
-                "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
-                else -> null
-            }
+            val selectedWallpaper = selectedWallpaperForTheme
             if (!lightMode && selectedWallpaper != null) ReetWallpaper(selectedWallpaper)
             else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else heroGlow, bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF080910)))))
             // Water-glass atmosphere with soft cyan and violet light blooms.
@@ -562,9 +577,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 val cardShape = RoundedCornerShape(34.dp)
                 Box(
                     Modifier.fillMaxWidth(.84f).fillMaxHeight(.74f)
-                        .shadow(28.dp, cardShape, ambientColor = accent, spotColor = accent)
+                        .shadow(38.dp, cardShape, ambientColor = Color.Black, spotColor = Color.Black)
                         .clip(cardShape)
-                        .border(1.2.dp, Color.White.copy(alpha = .90f), cardShape)
                 ) {
                     if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper, darken = false)
                     Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(
@@ -598,20 +612,14 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             drawLine(Color.White.copy(alpha = .38f), Offset(startX, centerY), Offset(endX, centerY),
                                 strokeWidth = 5.dp.toPx(), cap = StrokeCap.Round)
                             if (currentX > startX) {
-                                drawLine(dynamicAccent.copy(alpha = .22f), Offset(startX, centerY), Offset(currentX, centerY),
-                                    strokeWidth = 18.dp.toPx(), cap = StrokeCap.Round)
-                                drawLine(dynamicAccent.copy(alpha = .48f), Offset(startX, centerY), Offset(currentX, centerY),
-                                    strokeWidth = 10.dp.toPx(), cap = StrokeCap.Round)
-                                drawLine(dynamicAccent, Offset(startX, centerY), Offset(currentX, centerY),
+                                drawLine(fg.copy(alpha = .82f), Offset(startX, centerY), Offset(currentX, centerY),
                                     strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
-                                drawCircle(dynamicAccent.copy(alpha = .30f), radius = 13.dp.toPx(), center = Offset(currentX, centerY))
-                                drawCircle(dynamicAccent, radius = 5.dp.toPx(), center = Offset(currentX, centerY))
                             }
                         }
                         Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f,
                             onValueChange = { position = it.toLong() }, onValueChangeFinished = { player.seekTo(position) },
                             valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
-                            colors = SliderDefaults.colors(thumbColor = dynamicAccent, activeTrackColor = Color.Transparent,
+                            colors = SliderDefaults.colors(thumbColor = fg.copy(alpha = .85f), activeTrackColor = Color.Transparent,
                                 inactiveTrackColor = Color.Transparent, disabledThumbColor = Color.Transparent))
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -636,10 +644,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        PlayerTool(Icons.Default.QueueMusic, "Queue", dynamicAccent) { utility = "queue" }
-                        PlayerTool(Icons.Default.Description, "Lyrics", dynamicAccent) { utility = "lyrics" }
-                        PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent) { utility = "equalizer" }
-                        PlayerTool(Icons.Default.PlaylistAdd, "Add to", dynamicAccent) { utility = "add" }
+                        PlayerTool(Icons.Default.QueueMusic, "Queue", dynamicAccent, fg) { utility = "queue" }
+                        PlayerTool(Icons.Default.Description, "Lyrics", dynamicAccent, fg) { utility = "lyrics" }
+                        PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent, fg) { utility = "equalizer" }
+                        PlayerTool(Icons.Default.PlaylistAdd, "Add to", dynamicAccent, fg) { utility = "add" }
                     }
                     Spacer(Modifier.height(5.dp))
                     }
@@ -1018,10 +1026,10 @@ private fun CircleAction(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 @Composable
-private fun PlayerTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, accent: Color = Pink, onClick: () -> Unit) {
+private fun PlayerTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, accent: Color = Pink, textColor: Color = SoftText, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.softWhiteTap(onClick).padding(horizontal = 8.dp)) {
         Icon(icon, null, tint = accent, modifier = Modifier.size(21.dp))
-        Text(label, color = SoftText, fontSize = 9.sp)
+        Text(label, color = textColor, fontSize = 9.sp)
     }
 }
 
