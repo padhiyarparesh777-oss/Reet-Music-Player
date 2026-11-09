@@ -126,3 +126,21 @@ class WidgetActionReceiver : android.content.BroadcastReceiver() {
         const val FAVOURITE = "com.reet.music.WIDGET_FAVOURITE"
     }
 }
+
+class ReetCompactWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        ReetMusicWidgetProvider.updateVariant(context, manager, ids, "Compact")
+    }
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) {
+        ReetMusicWidgetProvider.updateVariant(context, manager, intArrayOf(appWidgetId), "Compact")
+    }
+}
+
+class ReetLargeWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        ReetMusicWidgetProvider.updateVariant(context, manager, ids, "Large")
+    }
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) {
+        ReetMusicWidgetProvider.updateVariant(context, manager, intArrayOf(appWidgetId), "Large")
+    }
+}
