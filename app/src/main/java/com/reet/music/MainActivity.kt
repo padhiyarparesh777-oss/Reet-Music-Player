@@ -660,7 +660,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         PlayerTool(Icons.Default.QueueMusic, "Queue", dynamicAccent, fg) { utility = "queue" }
                         PlayerTool(Icons.Default.Description, "Lyrics", dynamicAccent, fg) { utility = "lyrics" }
-                        PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent, fg) { utility = "equalizer" }
+                        PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent, fg) { utility = ""; showSettings = true }
                         PlayerTool(Icons.Default.PlaylistAdd, "Add to", dynamicAccent, fg) { utility = "add" }
                     }
                     Spacer(Modifier.height(5.dp))
