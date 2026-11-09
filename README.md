@@ -1,6 +1,6 @@
 # Reet — Offline Music Player
 
-A native Android offline music player with a soft rose and frosted-glass interface.
+A native Android offline music player with a pink-and-white frosted-glass interface, animated now-playing card, and reliable Media3 background playback.
 
 ## Technology
 - Kotlin + Jetpack Compose + Material 3
@@ -12,7 +12,10 @@ A native Android offline music player with a soft rose and frosted-glass interfa
 - Local audio permission and device library scan
 - Tracks, Favourite, Recent and Folder tabs
 - Search by song, artist and album
-- Play, pause, previous, next and seek controls
+- Play, pause, previous, next, shuffle, repeat and seek controls
+- Full-screen rounded frosted-glass Now Playing card with blurred artwork backdrop
+- Animated pulsing progress waveform and spring-animated sorting popup
+- Pink-white glass theme enabled by default, with the existing dark theme and accent choices retained
 - Favorites and recent history stored locally
 - Offline-first: no account, streaming service, API key or Internet permission
 

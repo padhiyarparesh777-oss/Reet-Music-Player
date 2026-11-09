@@ -55,9 +55,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.sin
+import kotlin.math.PI
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Animatable
 import androidx.core.content.ContextCompat
 import androidx.palette.graphics.Palette
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -66,13 +77,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-private val Pink = Color(0xFFFF78A8)
+private val Pink = Color(0xFFF28CB0)
 private val Charcoal = Color(0xFF171419)
 private val Deep = Color(0xFF100E12)
 private val SoftText = Color(0xFFAAA2AA)
 private val Glass = Color(0xFF252128)
 private val Line = Color(0xFF403640)
-private val WaterTint = Color(0xFFBDEBFF)
+private val WaterTint = Color(0xFFFFD7E5)
 
 private data class Song(
     val id: Long, val title: String, val artist: String, val album: String,
@@ -171,7 +182,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var sort by remember { mutableStateOf(prefs.getString("sort", "Name") ?: "Name") }
     var ascending by remember { mutableStateOf(true) }
     var showSortOptions by remember { mutableStateOf(false) }
-    var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", false)) }
+    var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", true)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
     var lyrics by remember { mutableStateOf("") }
     var lyricsEdit by remember { mutableStateOf(false) }
@@ -186,9 +197,9 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         "Gold" -> Color(0xFFE8C16C)
         else -> Pink
     }
-    val bg = if (lightMode) Color(0xFFF7F2F5) else Charcoal
-    val panel = if (lightMode) Color(0xBFFFFFFF) else Color(0x702B3440)
-    val glassStroke = if (lightMode) Color.White.copy(alpha = .92f) else Color.White.copy(alpha = .30f)
+    val bg = if (lightMode) Color(0xFFFFF6FA) else Charcoal
+    val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0x702B3440)
+    val glassStroke = if (lightMode) Color.White.copy(alpha = .96f) else Color.White.copy(alpha = .30f)
     val fg = if (lightMode) Color(0xFF211A20) else Color(0xFFF8F1F5)
     val muted = if (lightMode) Color(0xFF817680) else SoftText
     val audioPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
@@ -247,10 +258,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
       CompositionLocalProvider(LocalIndication provides ripple(color = Color.White.copy(alpha = .48f))) {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFEAF8FF) else Color(0xFF17242D), bg, if (lightMode) Color(0xFFF5EFFF) else Color(0xFF101820))))) {
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else Color(0xFF17242D), bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF101820))))) {
             // Water-glass atmosphere with soft cyan and violet light blooms.
             Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background(WaterTint.copy(alpha = if (lightMode) .32f else .20f)).blur(78.dp))
-            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background(Color(0xFFB6A7FF).copy(alpha = if (lightMode) .24f else .18f)).blur(82.dp))
+            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background(Color(0xFFFFC9DC).copy(alpha = if (lightMode) .30f else .18f)).blur(82.dp))
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -258,7 +269,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(27.dp))
                         Spacer(Modifier.width(8.dp))
                         Column {
-                            Text("REET", color = fg, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-.5).sp)
+                            Text("Reet 🌍🫶🏻", color = fg, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-.5).sp)
                             Text("Music Player", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                         }
                     }
@@ -391,7 +402,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
                                     val index = songs.indexOfFirst { it.id == song.id }
-                                    player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).build() }, index.coerceAtLeast(0), 0L)
+                                    player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).build()).build() }, index.coerceAtLeast(0), 0L)
                                     player.prepare(); player.play(); showPlayer = true
                                 }.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                                 SongArtwork(song.albumId, accent, 42)
@@ -454,44 +465,58 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     }
 
     if (showSortOptions) {
-        AlertDialog(onDismissRequest = { showSortOptions = false },
-            containerColor = if (lightMode) Color(0xEFFFFFFF) else Color(0xE925202A),
-            shape = RoundedCornerShape(28.dp),
-            title = { Text("Sort your music", color = fg, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    listOf("Name", "Time", "Size", "Length", "Artist", "Album").forEach { option ->
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp))
-                            .background(if (sort == option) accent.copy(alpha = .18f) else Color.White.copy(alpha = .045f))
-                            .clickable {
-                                sort = option
-                                prefs.edit().putString("sort", option).apply()
-                                showSortOptions = false
-                            }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(when(option) { "Name" -> "Song name"; "Time" -> "Recently added"; "Size" -> "File size"; "Length" -> "Duration"; else -> option }, color = fg, modifier = Modifier.weight(1f), fontSize = 13.sp)
-                            if (sort == option) Icon(Icons.Default.CheckCircle, null, tint = accent)
-                        }
-                    }
-                    Text("Order", color = muted, fontSize = 10.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Ascending" to true, "Descending" to false).forEach { (label, value) ->
-                            Text(label, color = if (ascending == value) Color.White else muted, modifier = Modifier.clip(RoundedCornerShape(18.dp))
-                                .background(if (ascending == value) accent else Glass).clickable { ascending = value }
-                                .padding(horizontal = 12.dp, vertical = 8.dp), fontSize = 10.sp)
-                        }
+        Dialog(onDismissRequest = { showSortOptions = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            val popupScale = remember { Animatable(0.82f) }
+            LaunchedEffect(Unit) { popupScale.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium)) }
+            val popupShape = RoundedCornerShape(30.dp)
+            Column(
+                Modifier.padding(horizontal = 24.dp).fillMaxWidth()
+                    .graphicsLayer { scaleX = popupScale.value; scaleY = popupScale.value }
+                    .shadow(24.dp, popupShape).clip(popupShape)
+                    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = .97f), Color(0xFFFFE6EF).copy(alpha = .96f))))
+                    .border(1.dp, Color.White, popupShape).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Sort your music", color = Color(0xFF3B2331), fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                listOf("Time", "Name", "Size", "Length", "Artist", "Album").forEach { option ->
+                    val selected = sort == option
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
+                            .background(if (selected) Color(0xFFFFD9E6) else Color.White.copy(alpha = .78f))
+                            .clickable { sort = option; prefs.edit().putString("sort", option).apply() }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            when (option) { "Time" -> "Recently added"; "Name" -> "Song name"; "Size" -> "File size"; "Length" -> "Duration"; else -> option },
+                            color = Color(0xFF3B2331), modifier = Modifier.weight(1f), fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                        )
+                        if (selected) Icon(Icons.Default.CheckCircle, null, tint = Color(0xFFE5558A))
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = { showSortOptions = false }) { Text("Done", color = accent) } })
+                Text("Order", color = Color(0xFF7D5A6C), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    listOf("Ascending" to true, "Descending" to false).forEach { (label, value) ->
+                        val selected = ascending == value
+                        Text(label, color = if (selected) Color.White else Color(0xFF3B2331),
+                            modifier = Modifier.clip(RoundedCornerShape(50))
+                                .background(if (selected) Color(0xFFE5558A) else Color.White.copy(alpha = .75f))
+                                .clickable { ascending = value }.padding(horizontal = 14.dp, vertical = 9.dp),
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Text("Done", color = Color.White,
+                    modifier = Modifier.align(Alignment.End).clip(RoundedCornerShape(50))
+                        .background(Color(0xFFE5558A)).clickable { showSortOptions = false }
+                        .padding(horizontal = 22.dp, vertical = 10.dp),
+                    fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
     }
 
     if (showPlayer && current != null) {
-        val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(onDismissRequest = { showPlayer = false }, sheetState = sheet,
-            containerColor = if (lightMode) Color(0xCFEAF8FF) else Color(0xC91A2731),
-            scrimColor = Color.Black.copy(alpha = .48f),
-            shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
-            dragHandle = { Box(Modifier.padding(vertical = 11.dp).size(38.dp, 4.dp).clip(CircleShape).background(muted)) }) {
+        Dialog(onDismissRequest = { showPlayer = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             val song = current!!
             val art = rememberArtwork(song.albumId)
             val dynamicAccent by produceState(initialValue = accent, key1 = art, key2 = accent) {
@@ -502,49 +527,81 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             }
             val artMotion = rememberInfiniteTransition(label = "artMotion")
             val artScale by artMotion.animateFloat(1f, 1.035f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "artScale")
-            Column(Modifier.fillMaxWidth().fillMaxHeight(.91f).padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Playing from", color = muted, fontSize = 10.sp)
-                        Text("My Songs", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Box(Modifier.fillMaxSize().background(bg), contentAlignment = Alignment.Center) {
+                if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
+                    modifier = Modifier.fillMaxSize().blur(70.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
+                    Color.White.copy(alpha = if (lightMode) .62f else .24f), bg.copy(alpha = .72f),
+                    Color.White.copy(alpha = if (lightMode) .76f else .18f)
+                ))))
+                val cardShape = RoundedCornerShape(34.dp)
+                Column(
+                    Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 13.dp)
+                        .shadow(28.dp, cardShape, ambientColor = accent, spotColor = accent).clip(cardShape)
+                        .background(Brush.linearGradient(listOf(
+                            Color.White.copy(alpha = if (lightMode) .88f else .16f),
+                            Color(0xFFFFE7F0).copy(alpha = if (lightMode) .72f else .10f),
+                            Color.White.copy(alpha = if (lightMode) .64f else .13f)
+                        )))
+                        .border(1.2.dp, Color.White.copy(alpha = .90f), cardShape)
+                        .padding(horizontal = 19.dp, vertical = 13.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { showPlayer = false }) { Icon(Icons.Default.KeyboardArrowDown, "Close player", tint = fg) }
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("NOW PLAYING", color = muted, fontSize = 9.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                            Text("REET · OFFLINE", color = accent, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.MoreVert, "More options", tint = fg) }
                     }
-                    IconButton(onClick = { showPlayer = false }) { Icon(Icons.Default.KeyboardArrowDown, null, tint = fg) }
-                    IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.MoreVert, null, tint = fg) }
-                }
-                Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(26.dp)), contentAlignment = Alignment.Center) {
-                    if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null, modifier = Modifier.fillMaxSize().blur(38.dp))
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(dynamicAccent.copy(alpha = .44f), bg.copy(alpha = .92f)))))
-                    if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null, modifier = Modifier.fillMaxWidth(.72f).aspectRatio(1f).graphicsLayer { scaleX = artScale; scaleY = artScale }.clip(RoundedCornerShape(24.dp)))
-                    else ArtworkPlaceholder(accent, 190)
-                    Text("REET", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, letterSpacing = 5.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
-                }
-                Spacer(Modifier.height(17.dp))
-                Text(song.title, color = fg, fontSize = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artist + " · " + song.album, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
-                Spacer(Modifier.height(12.dp))
-                Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f, onValueChange = { position = it.toLong() }, onValueChangeFinished = { player.seekTo(position) },
-                    valueRange = 0f..duration.coerceAtLeast(1L).toFloat(), colors = SliderDefaults.colors(thumbColor = dynamicAccent, activeTrackColor = dynamicAccent, inactiveTrackColor = Line))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(formatTime(position), color = muted, fontSize = 9.sp); Text(formatTime(duration), color = muted, fontSize = 9.sp) }
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, null, tint = if (player.shuffleModeEnabled) accent else muted) }
-                    IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, null, tint = fg, modifier = Modifier.size(31.dp)) }
-                    Box(Modifier.size(62.dp).clip(CircleShape).background(dynamicAccent).clickable { if (playing) player.pause() else player.play() }, contentAlignment = Alignment.Center) {
-                        Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(33.dp))
+                    Box(Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                        if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
+                            modifier = Modifier.fillMaxHeight(.94f).aspectRatio(1f)
+                                .graphicsLayer { scaleX = artScale; scaleY = artScale }
+                                .shadow(20.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                        else ArtworkPlaceholder(accent, 220)
                     }
-                    IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, null, tint = fg, modifier = Modifier.size(31.dp)) }
-                    IconButton(onClick = { val key = song.id.toString(); favorites = if (favorites.contains(key)) favorites - key else favorites + key; prefs.edit().putStringSet("favorites", favorites).apply() }) {
-                        Icon(if (favorites.contains(song.id.toString())) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = accent)
+                    Text(song.title, color = fg, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(song.artist + " · " + song.album, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(8.dp))
+                    Box(Modifier.fillMaxWidth().height(58.dp), contentAlignment = Alignment.Center) {
+                        PulsingLines(playing, dynamicAccent, Modifier.fillMaxSize())
+                        Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f,
+                            onValueChange = { position = it.toLong() }, onValueChangeFinished = { player.seekTo(position) },
+                            valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
+                            colors = SliderDefaults.colors(thumbColor = dynamicAccent, activeTrackColor = dynamicAccent, inactiveTrackColor = Color.White.copy(alpha = .75f)))
                     }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(formatTime(position), color = muted, fontSize = 10.sp)
+                        Text(formatTime(duration), color = muted, fontSize = 10.sp)
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (player.shuffleModeEnabled) accent else muted) }
+                        IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = fg, modifier = Modifier.size(30.dp)) }
+                        Box(Modifier.size(66.dp).shadow(12.dp, CircleShape).clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Color(0xFFFFB7D0), Color(0xFFE5558A))))
+                            .clickable { if (playing) player.pause() else player.play() }, contentAlignment = Alignment.Center) {
+                            Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play/Pause", tint = Color.White, modifier = Modifier.size(34.dp))
+                        }
+                        IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, "Next", tint = fg, modifier = Modifier.size(30.dp)) }
+                        IconButton(onClick = {
+                            val key = song.id.toString()
+                            favorites = if (favorites.contains(key)) favorites - key else favorites + key
+                            prefs.edit().putStringSet("favorites", favorites).apply()
+                        }) { Icon(if (favorites.contains(song.id.toString())) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Favourite", tint = accent) }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        PlayerTool(Icons.Default.QueueMusic, "Queue") { utility = "queue" }
+                        PlayerTool(Icons.Default.Description, "Lyrics") { utility = "lyrics" }
+                        PlayerTool(Icons.Default.GraphicEq, "Equalizer") { utility = "equalizer" }
+                        PlayerTool(Icons.Default.PlaylistAdd, "Add to") { utility = "add" }
+                    }
+                    Spacer(Modifier.height(5.dp))
                 }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    PlayerTool(Icons.Default.QueueMusic, "Queue") { utility = "queue" }
-                    PlayerTool(Icons.Default.Description, "Lyrics") { utility = "lyrics" }
-                    PlayerTool(Icons.Default.GraphicEq, "Equalizer") { utility = "equalizer" }
-                    PlayerTool(Icons.Default.PlaylistAdd, "Add to") { utility = "add" }
-                }
-                Spacer(Modifier.height(20.dp))
             }
         }
     }
@@ -581,7 +638,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         item { Text("UP NEXT", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 5.dp)) }
                         items(songs.filterNot { it.id == current?.id }) { s -> Row(Modifier.fillMaxWidth().clickable {
                             val index = songs.indexOf(s); current = s
-                            player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).build() }, index, 0L)
+                            player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).build()).build() }, index, 0L)
                             player.prepare(); player.play(); utility = ""
                         }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.DragHandle, null, tint = muted, modifier = Modifier.size(18.dp))
@@ -746,6 +803,28 @@ private fun EqualizerBars(accent: Color, modifier: Modifier = Modifier) {
                 topLeft = androidx.compose.ui.geometry.Offset(i * (barWidth + gap), (size.height - h) / 2),
                 size = androidx.compose.ui.geometry.Size(barWidth, h),
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2))
+        }
+    }
+}
+
+@Composable
+private fun PulsingLines(active: Boolean, accent: Color, modifier: Modifier = Modifier) {
+    val motion = rememberInfiniteTransition(label = "progressWave")
+    val phase by motion.animateFloat(0f, (PI * 2f).toFloat(),
+        infiniteRepeatable(tween(if (active) 1050 else 2600, easing = LinearEasing), RepeatMode.Restart),
+        label = "wavePhase")
+    Canvas(modifier) {
+        val count = 34
+        val slot = size.width / count
+        val barWidth = slot * .42f
+        for (i in 0 until count) {
+            val wave = sin(phase + i * .48f) * .5f + .5f
+            val heightFactor = if (active) .16f + wave * .72f else .16f + wave * .12f
+            val barHeight = size.height * heightFactor
+            drawRoundRect(
+                color = (if (i % 3 == 0) accent else Color.White).copy(alpha = if (active) .62f else .34f),
+                topLeft = Offset(i * slot + (slot - barWidth) / 2f, (size.height - barHeight) / 2f),
+                size = Size(barWidth, barHeight), cornerRadius = CornerRadius(barWidth / 2f))
         }
     }
 }
