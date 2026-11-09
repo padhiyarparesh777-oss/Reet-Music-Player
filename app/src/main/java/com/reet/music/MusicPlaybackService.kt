@@ -9,6 +9,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
 class MusicPlaybackService : MediaSessionService() {
+    companion object { @Volatile var audioSessionId: Int = 0 }
     private var mediaSession: MediaSession? = null
 
     override fun onCreate() {
@@ -25,6 +26,7 @@ class MusicPlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         player.repeatMode = Player.REPEAT_MODE_ALL
+        audioSessionId = player.audioSessionId
         mediaSession = MediaSession.Builder(this, player).build()
     }
 
@@ -41,6 +43,7 @@ class MusicPlaybackService : MediaSessionService() {
             release()
         }
         mediaSession = null
+        audioSessionId = 0
         super.onDestroy()
     }
 }
