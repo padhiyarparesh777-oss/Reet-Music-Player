@@ -1,40 +1,45 @@
-# Reet — Offline Music Player
+# Reet Music Player
 
-A native Android offline music player with a pink-and-white frosted-glass interface, animated now-playing card, and reliable Media3 background playback.
+A native Android offline music player with a frosted-glass interface, animated now-playing screen and Media3 background playback.
 
 ## Technology
-- Kotlin + Jetpack Compose + Material 3
-- AndroidX Media3 ExoPlayer
-- Android MediaStore for local audio discovery
-- Java 17 / Kotlin JVM target 17
+- Kotlin, Jetpack Compose and Material 3
+- AndroidX Media3 ExoPlayer and MediaLibraryService
+- Android MediaStore for local audio discovery and metadata
+- Java 17, Gradle 8.14.3
 
-## Current features
-- Local audio permission and device library scan
-- Tracks, Favourite, Recent and Folder tabs
-- Search by song, artist and album
-- Play, pause, previous, next, shuffle, repeat and seek controls
-- Full-screen rounded frosted-glass Now Playing card with blurred artwork backdrop
-- Animated pulsing progress waveform and spring-animated sorting popup
-- Pink-white glass theme enabled by default, with the existing dark theme and accent choices retained
-- Favorites and recent history stored locally
-- Offline-first: no account, streaming service, API key or Internet permission
+## Features
+- Offline library: Songs, New, Favourites, Albums, Artists and Folders
+- Search, sorting, duplicate finder and library rescan
+- Playback queue with reorder, remove and Play Next
+- Shuffle, repeat modes, sleep timer and playback history
+- M3U playlist import/export and local playlists
+- Offline plain-text and timestamped LRC lyrics
+- In-app song title, artist and album overrides; Android 11+ can request system approval to write MediaStore tags
+- Custom album artwork with persisted document access
+- Device-backed equalizer, bass boost and virtualizer when supported by the audio device
+- Media session, lock-screen and notification controls
+- Compact, medium and large home-screen widgets
+- MediaLibraryService browsing structure and Android Auto media declaration
+- Dark/light themes, accent options and bundled wallpapers
+- Offline-first: no account, streaming service, API key or network permission
 
 ## Android compatibility
 - Minimum SDK: Android 7.0 (API 24)
 - Compile SDK: Android 16 (API 36)
 - Target SDK: Android 16 (API 36)
 - Application ID: `com.reet.music`
+- Current app version: **1.4.1** (versionCode 15)
 
-## Build
-Open the repository in Android Studio, sync Gradle and run the `app` configuration.
+## Build and APKs
+GitHub Actions builds both debug and release APKs when the persistent signing keystore is configured. Open the repository's Actions tab, select the latest successful **Android Build** run, then download:
+- `reet-android-16-release-apk` for the release APK
+- `reet-android-16-debug-apk` for the debug APK
 
-For CI, GitHub Actions installs Java 17, Gradle 8.14.3 and Android SDK 36, then builds a debug APK. The APK is published as the `reet-android-16-debug-apk` workflow artifact when the build succeeds.
+The release artifact is signed using the repository's configured signing key. Keep that keystore and its credentials safe; future updates must use the same signing identity to install over an existing release.
 
-## Playback architecture
-- Background playback runs in Media3 MediaSessionService, separate from the Activity lifecycle.
-- Lock-screen and notification controls are provided by the MediaSession.
+## Playback and car integration
+Background playback and browsing use AndroidX Media3 `MediaLibraryService`. Android Auto media support is declared through `automotive_app_desc.xml`; actual car/head-unit compatibility still needs a physical Android Auto test.
 
-## Planned improvements
-- Album artwork and improved now-playing screen
-- Playlists, sorting and richer library management
-- Optional equalizer integration where supported by the device
+## Device testing still recommended
+Test equalizer behavior with music playing, widget resizing and actions across launchers, M3U import/export, metadata permission acceptance/decline, artwork persistence after restart, and Android Auto browsing on a compatible head unit.
