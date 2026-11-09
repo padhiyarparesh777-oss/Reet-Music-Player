@@ -849,8 +849,13 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         if (lyrics.isBlank()) {
                             Text("No saved lyrics yet. Paste plain lyrics or timestamped .LRC lyrics for offline access.", color = muted, fontSize = 12.sp)
                         } else if (syncedLines.isNotEmpty()) {
-                            Column(Modifier.fillMaxWidth().heightIn(max = 250.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                                syncedLines.forEachIndexed { index, line ->
+                            val lyricListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                            LaunchedEffect(activeLine) {
+                                if (activeLine >= 0) lyricListState.animateScrollToItem(activeLine)
+                            }
+                            LazyColumn(state = lyricListState, modifier = Modifier.fillMaxWidth().heightIn(max = 250.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                items(syncedLines.size) { index ->
+                                    val line = syncedLines[index]
                                     Text(line.text.ifBlank { "♪" }, color = if (index == activeLine) accent else muted.copy(alpha = if (index in (activeLine + 1)..(activeLine + 2)) .85f else .45f), fontSize = if (index == activeLine) 18.sp else 13.sp, fontWeight = if (index == activeLine) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp))
                                 }
                             }
@@ -971,7 +976,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         AlertDialog(onDismissRequest = { lyricsEdit = false }, containerColor = panel,
             title = { Text("Save offline lyrics", color = fg) },
             text = { Column {
-                OutlinedTextField(value = draft, onValueChange = { draft = it }, minLines = 5, maxLines = 9, label = { Text("Paste lyrics") })
+                OutlinedTextField(value = draft, onValueChange = { draft = it }, minLines = 5, maxLines = 9, label = { Text("Paste plain lyrics or timestamped .LRC") })
             } },
             confirmButton = { TextButton(onClick = {
                 lyrics = draft; prefs.edit().putString("lyrics_" + current!!.id, draft).apply(); lyricsEdit = false
