@@ -14,8 +14,8 @@ android {
         applicationId = "com.reet.music"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.3.2"
+        versionCode = 7
+        versionName = "1.3.3"
     }
 
     signingConfigs {
