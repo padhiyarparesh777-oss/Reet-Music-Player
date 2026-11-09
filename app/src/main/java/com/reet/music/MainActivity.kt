@@ -1,6 +1,7 @@
 package com.reet.music
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
 import android.content.pm.PackageManager
 import android.content.ComponentName
 import android.content.Intent
@@ -218,7 +219,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val bassBoost = remember(audioSessionId) { runCatching { if (audioSessionId > 0) BassBoost(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
     val virtualizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Virtualizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
     var bassLevel by remember { mutableFloatStateOf(prefs.getInt("eq_bass", 0).toFloat()) }
-    var trebleLevel by remember { mutableFloatStateOf(prefs.getInt("eq_treble", 0).toFloat()) }
+    var trebleLevel by remember { mutableFloatStateOf(prefs.getInt("eq_treble", 500).toFloat()) }
     var virtualLevel by remember { mutableFloatStateOf(prefs.getInt("eq_virtual", 0).toFloat()) }
     var selectedEqPreset by remember { mutableStateOf(prefs.getString("eq_preset", "Custom") ?: "Custom") }
     var eqBandLevels by remember(audioSessionId) { mutableStateOf((0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { index -> runCatching { prefs.getFloat("eq_band_$index", (equalizer?.getBandLevel(index.toShort()) ?: 0).toFloat() / 100f) }.getOrDefault(0f) }) }
@@ -228,6 +229,16 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     LaunchedEffect(bassLevel, virtualLevel) {
         runCatching { bassBoost?.setStrength(bassLevel.toInt().toShort()) }
         runCatching { virtualizer?.setStrength(virtualLevel.toInt().toShort()) }
+    }
+    LaunchedEffect(trebleLevel, equalizer) {
+        runCatching {
+            val lastBand = (equalizer?.numberOfBands?.toInt() ?: 0) - 1
+            if (lastBand >= 0) {
+                val range = equalizer!!.bandLevelRange
+                val level = (range[0] + (range[1] - range[0]) * (trebleLevel / 1000f)).toInt().toShort()
+                equalizer.setBandLevel(lastBand.toShort(), level)
+            }
+        }
     }
     LaunchedEffect(Unit) { wallpaperNames = withContext(Dispatchers.IO) { runCatching { context.assets.list("backgrounds")?.filter { it.endsWith(".jpg", true) || it.endsWith(".png", true) || it.endsWith(".webp", true) }?.sorted().orEmpty() }.getOrDefault(emptyList()) } }
 
