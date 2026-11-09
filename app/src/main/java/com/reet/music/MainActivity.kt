@@ -553,12 +553,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         Dialog(onDismissRequest = { showPlayer = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             val song = current!!
             val art = rememberArtwork(song.albumId)
-            val dynamicAccent by produceState(initialValue = accent, key1 = art, key2 = accent) {
-                value = withContext(Dispatchers.Default) {
-                    try { art?.let { Palette.from(it).generate().vibrantSwatch?.rgb?.let { rgb -> Color(rgb) } } ?: accent }
-                    catch (_: Exception) { accent }
-                }
-            }
+            val dynamicAccent = accent
             val artMotion = rememberInfiniteTransition(label = "artMotion")
             val artScale by artMotion.animateFloat(1f, 1.035f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "artScale")
             Box(Modifier.fillMaxSize().background(bg), contentAlignment = Alignment.Center) {
