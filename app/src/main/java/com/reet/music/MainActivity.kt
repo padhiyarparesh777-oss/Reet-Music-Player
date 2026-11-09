@@ -606,15 +606,20 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             val currentX = startX + (endX - startX) * progress
                             drawLine(Color.White.copy(alpha = .38f), Offset(startX, centerY), Offset(endX, centerY),
                                 strokeWidth = 5.dp.toPx(), cap = StrokeCap.Round)
+                            drawLine(Color.White.copy(alpha = .28f), Offset(startX, centerY), Offset(endX, centerY),
+                                strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
                             if (currentX > startX) {
-                                drawLine(fg.copy(alpha = .82f), Offset(startX, centerY), Offset(currentX, centerY),
-                                    strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
+                                drawLine(accent.copy(alpha = .72f), Offset(startX, centerY), Offset(currentX, centerY),
+                                    strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+                                drawCircle(accent.copy(alpha = .20f), radius = 15.dp.toPx(), center = Offset(currentX, centerY))
+                                drawCircle(accent.copy(alpha = .42f), radius = 9.dp.toPx(), center = Offset(currentX, centerY))
+                                drawCircle(accent, radius = 5.dp.toPx(), center = Offset(currentX, centerY))
                             }
                         }
                         Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f,
                             onValueChange = { position = it.toLong() }, onValueChangeFinished = { player.seekTo(position) },
                             valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
-                            colors = SliderDefaults.colors(thumbColor = fg.copy(alpha = .85f), activeTrackColor = Color.Transparent,
+                            colors = SliderDefaults.colors(thumbColor = Color.Transparent, activeTrackColor = Color.Transparent,
                                 inactiveTrackColor = Color.Transparent, disabledThumbColor = Color.Transparent))
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
