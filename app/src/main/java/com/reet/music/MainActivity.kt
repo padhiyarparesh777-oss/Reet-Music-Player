@@ -218,7 +218,6 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val scanScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("reet_library", android.content.Context.MODE_PRIVATE) }
     val haptic = LocalHapticFeedback.current
-    val metadataRefresh = metadataRevision
     var songs by remember { mutableStateOf(emptyList<Song>()) }
     var current by remember { mutableStateOf<Song?>(null) }
     var playing by remember { mutableStateOf(false) }
@@ -252,6 +251,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var metadataArtist by remember { mutableStateOf("") }
     var metadataAlbum by remember { mutableStateOf("") }
     var metadataRevision by remember { mutableIntStateOf(0) }
+    val metadataRefresh = metadataRevision
     var editingSongId by remember { mutableStateOf<Long?>(null) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
