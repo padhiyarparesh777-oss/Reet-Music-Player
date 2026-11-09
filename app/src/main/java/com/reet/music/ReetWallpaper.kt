@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 import android.graphics.BitmapFactory
 
 @Composable
-fun ReetWallpaper(assetName: String) {
+fun ReetWallpaper(assetName: String, darken: Boolean = true) {
     val context = LocalContext.current.applicationContext
     var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(assetName) {
@@ -35,7 +35,7 @@ fun ReetWallpaper(assetName: String) {
         Crossfade(bitmap, animationSpec = tween(850), label = "reet-wallpaper") { image ->
             if (image != null) Image(image, contentDescription = "Music wallpaper", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
-        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(
+        if (darken) Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(
             androidx.compose.ui.graphics.Color.Black.copy(alpha = .48f),
             androidx.compose.ui.graphics.Color.Black.copy(alpha = .58f)
         ))))
