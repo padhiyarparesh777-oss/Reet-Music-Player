@@ -16,7 +16,7 @@ import java.io.FileNotFoundException
 
 class ReetMusicWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        ids.forEach { updateOne(context, manager, it) }
+        updateVariant(context, manager, ids, "Medium")
     }
 
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) { updateOne(context, manager, appWidgetId) }
@@ -34,8 +34,18 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
 
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, ReetMusicWidgetProvider::class.java))
-            ids.forEach { updateOne(context, manager, it) }
+            listOf(
+                ReetCompactWidgetProvider::class.java to "Compact",
+                ReetMusicWidgetProvider::class.java to "Medium",
+                ReetLargeWidgetProvider::class.java to "Large"
+            ).forEach { (provider, mode) ->
+                val ids = manager.getAppWidgetIds(ComponentName(context, provider))
+                updateVariant(context, manager, ids, mode)
+            }
+        }
+
+        fun updateVariant(context: Context, manager: AppWidgetManager, ids: IntArray, mode: String) {
+            ids.forEach { updateOne(context, manager, it, mode) }
         }
 
         private fun action(context: Context, action: String, request: Int): PendingIntent {
@@ -43,7 +53,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             return PendingIntent.getBroadcast(context, request, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
 
-        private fun updateOne(context: Context, manager: AppWidgetManager, id: Int) {
+        private fun updateOne(context: Context, manager: AppWidgetManager, id: Int, providerMode: String) {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val views = RemoteViews(context.packageName, R.layout.widget_reet_music)
             val title = prefs.getString("widget_song_title", "Reet Music Player") ?: "Reet Music Player"
@@ -72,7 +82,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             val options = manager.getAppWidgetOptions(id)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 90)
-            val layoutMode = prefs.getString("widget_layout", "Medium") ?: "Medium"
+            val layoutMode = providerMode
             val compact = layoutMode == "Compact" || minWidth < 190 || minHeight < 82
             val large = layoutMode == "Large" && minWidth >= 220 && minHeight >= 95
             views.setViewVisibility(R.id.widget_artist, if (compact) android.view.View.GONE else android.view.View.VISIBLE)
