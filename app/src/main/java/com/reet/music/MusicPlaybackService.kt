@@ -1,6 +1,9 @@
 package com.reet.music
 
 import android.content.Intent
+import android.media.audiofx.Equalizer
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Virtualizer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -11,7 +14,16 @@ import android.content.ComponentName
 import androidx.core.content.ContextCompat
 
 class MusicPlaybackService : MediaSessionService() {
-    companion object { @Volatile var audioSessionId: Int = 0 }
+    companion object {
+        @Volatile var audioSessionId: Int = 0
+            private set
+        @Volatile var equalizerEffect: Equalizer? = null
+            private set
+        @Volatile var bassBoostEffect: BassBoost? = null
+            private set
+        @Volatile var virtualizerEffect: Virtualizer? = null
+            private set
+    }
     private var mediaSession: MediaSession? = null
 
     override fun onCreate() {
@@ -29,6 +41,10 @@ class MusicPlaybackService : MediaSessionService() {
             .build()
         player.repeatMode = Player.REPEAT_MODE_ALL
         audioSessionId = player.audioSessionId
+        // Keep effects bound to the ExoPlayer audio session, not the Activity lifecycle.
+        equalizerEffect = runCatching { Equalizer(0, audioSessionId).apply { enabled = true } }.getOrNull()
+        bassBoostEffect = runCatching { BassBoost(0, audioSessionId).apply { enabled = true } }.getOrNull()
+        virtualizerEffect = runCatching { Virtualizer(0, audioSessionId).apply { enabled = true } }.getOrNull()
         mediaSession = MediaSession.Builder(this, player).build()
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -98,6 +114,12 @@ class MusicPlaybackService : MediaSessionService() {
             release()
         }
         mediaSession = null
+        runCatching { equalizerEffect?.release() }
+        runCatching { bassBoostEffect?.release() }
+        runCatching { virtualizerEffect?.release() }
+        equalizerEffect = null
+        bassBoostEffect = null
+        virtualizerEffect = null
         audioSessionId = 0
         super.onDestroy()
     }
