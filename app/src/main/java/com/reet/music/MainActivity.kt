@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -887,7 +888,20 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             items(queuedSongs, key = { it.id }) { queued ->
                                 val queueIndex = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == queued.id.toString() } ?: -1
                                 val active = queued.id.toString() == player.currentMediaItem?.mediaId
-                                Row(Modifier.fillMaxWidth().background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
+                                var dragDistance by remember(queueIndex) { mutableFloatStateOf(0f) }
+                                Row(Modifier.fillMaxWidth()
+                                    .pointerInput(queueIndex, player.mediaItemCount) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragEnd = {
+                                                if (dragDistance > 48f && queueIndex >= 0 && queueIndex < player.mediaItemCount - 1) player.moveMediaItem(queueIndex, queueIndex + 1)
+                                                else if (dragDistance < -48f && queueIndex > 0) player.moveMediaItem(queueIndex, queueIndex - 1)
+                                                dragDistance = 0f
+                                            },
+                                            onDragCancel = { dragDistance = 0f },
+                                            onDrag = { change, amount -> dragDistance += amount.y; change.consume() }
+                                        )
+                                    }
+                                    .background(if (active) accent.copy(alpha = .10f) else Color.Transparent)
                                     .clickable {
                                         if (queueIndex >= 0) { player.seekTo(queueIndex, 0L); player.play(); utility = "" }
                                     }.padding(vertical = 7.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
