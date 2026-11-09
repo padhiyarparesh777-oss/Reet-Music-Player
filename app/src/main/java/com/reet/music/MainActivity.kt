@@ -5,6 +5,9 @@ import android.content.pm.PackageManager
 import android.content.ComponentName
 import android.content.Intent
 import android.media.audiofx.AudioEffect
+import android.media.audiofx.Equalizer
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Virtualizer
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -206,6 +209,21 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var wallpaperNames by remember { mutableStateOf(emptyList<String>()) }
     var fixedWallpaper by remember { mutableStateOf(prefs.getString("fixed_wallpaper", "") ?: "") }
     var wallpaperIndex by remember { mutableIntStateOf(0) }
+    val audioSessionId = MusicPlaybackService.audioSessionId
+    val equalizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Equalizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
+    val bassBoost = remember(audioSessionId) { runCatching { if (audioSessionId > 0) BassBoost(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
+    val virtualizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Virtualizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
+    var bassLevel by remember { mutableFloatStateOf(prefs.getInt("eq_bass", 0).toFloat()) }
+    var virtualLevel by remember { mutableFloatStateOf(prefs.getInt("eq_virtual", 0).toFloat()) }
+    var selectedEqPreset by remember { mutableStateOf(prefs.getString("eq_preset", "Custom") ?: "Custom") }
+    var eqBandLevels by remember(audioSessionId) { mutableStateOf((0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { index -> runCatching { (equalizer?.getBandLevel(index.toShort()) ?: 0).toFloat() / 100f }.getOrDefault(0f) }) }
+    DisposableEffect(equalizer, bassBoost, virtualizer) {
+        onDispose { runCatching { equalizer?.release() }; runCatching { bassBoost?.release() }; runCatching { virtualizer?.release() } }
+    }
+    LaunchedEffect(bassLevel, virtualLevel) {
+        runCatching { bassBoost?.setStrength(bassLevel.toInt().toShort()) }
+        runCatching { virtualizer?.setStrength(virtualLevel.toInt().toShort()) }
+    }
     LaunchedEffect(Unit) { wallpaperNames = withContext(Dispatchers.IO) { runCatching { context.assets.list("backgrounds")?.filter { it.endsWith(".jpg", true) || it.endsWith(".png", true) || it.endsWith(".webp", true) }?.sorted().orEmpty() }.getOrDefault(emptyList()) } }
 
     val baseAccent = when (accentName) {
@@ -400,7 +418,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     current = song
                                     val index = songs.indexOfFirst { it.id == song.id }
-                                    player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).build()).build() }, index.coerceAtLeast(0), 0L)
+                                    player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index.coerceAtLeast(0), 0L)
                                     player.prepare(); player.play(); showPlayer = true
                                 }.padding(horizontal = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                                 SongArtwork(song.albumId, accent, 42)
@@ -659,7 +677,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         item { Text("UP NEXT", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 5.dp)) }
                         items(songs.filterNot { it.id == current?.id }) { s -> Row(Modifier.fillMaxWidth().clickable {
                             val index = songs.indexOf(s); current = s
-                            player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).build()).build() }, index, 0L)
+                            player.setMediaItems(songs.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).setMediaMetadata(MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).setAlbumTitle(it.album).setArtworkUri(Uri.parse("content://media/external/audio/albumart/" + it.albumId)).build()).build() }, index, 0L)
                             player.prepare(); player.play(); utility = ""
                         }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.DragHandle, null, tint = muted, modifier = Modifier.size(18.dp))
@@ -788,6 +806,67 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             Column(Modifier.weight(1f)) { Text("Equalizer", color = fg, fontSize = 12.sp); Text("Open device sound effects and EQ", color = muted, fontSize = 10.sp) }
                             Icon(Icons.Default.ChevronRight, null, tint = muted)
                         }
+                        Divider(color = glassStroke)
+                        Text("EQUALIZER · BASS · TREBLE", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Text("Audio effects apply to the active music session.", color = muted, fontSize = 10.sp)
+                        if (equalizer != null) {
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                (0 until equalizer.numberOfPresets.toInt()).forEach { preset ->
+                                    val name = runCatching { equalizer.getPresetName(preset.toShort()).toString() }.getOrDefault("Preset $preset")
+                                    Text(name, color = if (selectedEqPreset == name) Color.White else muted, fontSize = 10.sp,
+                                        modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (selectedEqPreset == name) accent else panel)
+                                            .clickable {
+                                                runCatching { equalizer.usePreset(preset.toShort()) }
+                                                eqBandLevels = (0 until equalizer.numberOfBands.toInt()).map { equalizer.getBandLevel(it.toShort()) / 100f }
+                                                selectedEqPreset = name; prefs.edit().putString("eq_preset", name).apply()
+                                            }.padding(horizontal = 12.dp, vertical = 8.dp))
+                                }
+                                Text("Custom", color = if (selectedEqPreset == "Custom") Color.White else muted, fontSize = 10.sp,
+                                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (selectedEqPreset == "Custom") accent else panel)
+                                        .clickable { selectedEqPreset = "Custom" }.padding(horizontal = 12.dp, vertical = 8.dp))
+                            }
+                            val bandCount = equalizer.numberOfBands.toInt()
+                            val labels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                (0 until minOf(5, bandCount)).forEach { band ->
+                                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        val range = equalizer.bandLevelRange
+                                        val minDb = range[0].toFloat() / 100f
+                                        val maxDb = range[1].toFloat() / 100f
+                                        val value = eqBandLevels.getOrNull(band) ?: 0f
+                                        Slider(value = value.coerceIn(minDb, maxDb), onValueChange = { next ->
+                                            val copy = eqBandLevels.toMutableList()
+                                            if (band < copy.size) copy[band] = next
+                                            eqBandLevels = copy; selectedEqPreset = "Custom"
+                                            runCatching { equalizer.setBandLevel(band.toShort(), (next * 100f).toInt().toShort()) }
+                                        }, valueRange = minDb..maxDb, modifier = Modifier.height(126.dp),
+                                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                                        Text(labels.getOrElse(band) { "Band ${band + 1}" }, color = muted, fontSize = 8.sp, maxLines = 1)
+                                        Text(String.format(Locale.getDefault(), "%.1f", value) + " dB", color = fg, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        } else Text("Start playback to enable the equalizer.", color = muted, fontSize = 11.sp)
+                        Column {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Bass Boost", color = fg, fontSize = 11.sp); Text("${bassLevel.toInt() / 10}%", color = accent, fontSize = 11.sp)
+                            }
+                            Slider(value = bassLevel, onValueChange = { bassLevel = it; prefs.edit().putInt("eq_bass", it.toInt()).apply() },
+                                valueRange = 0f..1000f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                        }
+                        Column {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("3D / Surround", color = fg, fontSize = 11.sp); Text("${virtualLevel.toInt() / 10}%", color = accent, fontSize = 11.sp)
+                            }
+                            Slider(value = virtualLevel, onValueChange = { virtualLevel = it; prefs.edit().putInt("eq_virtual", it.toInt()).apply() },
+                                valueRange = 0f..1000f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                        }
+                        Text("Reset equalizer", color = accent, fontSize = 11.sp, modifier = Modifier.clickable {
+                            runCatching { equalizer?.usePreset(0) }
+                            eqBandLevels = (0 until (equalizer?.numberOfBands?.toInt() ?: 0)).map { 0f }
+                            bassLevel = 0f; virtualLevel = 0f; selectedEqPreset = "Custom"
+                            prefs.edit().putInt("eq_bass", 0).putInt("eq_virtual", 0).putString("eq_preset", "Custom").apply()
+                        })
                         Divider(color = glassStroke)
                         Text("LIBRARY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                         Row(Modifier.fillMaxWidth().clickable { scan(); showSettings = false }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
