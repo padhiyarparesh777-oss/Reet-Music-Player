@@ -221,7 +221,13 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var widgetLayout by remember { mutableStateOf(prefs.getString("widget_layout", "Medium") ?: "Medium") }
     var widgetAutoWallpaper by remember { mutableStateOf(prefs.getBoolean("widget_wallpaper_auto", true)) }
     var widgetWallpaper by remember { mutableStateOf(prefs.getString("widget_wallpaper", "") ?: "") }
-    val audioSessionId = MusicPlaybackService.audioSessionId
+    var audioSessionId by remember { mutableIntStateOf(MusicPlaybackService.audioSessionId) }
+    LaunchedEffect(Unit) {
+        while (audioSessionId <= 0) {
+            delay(250)
+            audioSessionId = MusicPlaybackService.audioSessionId
+        }
+    }
     val equalizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Equalizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
     val bassBoost = remember(audioSessionId) { runCatching { if (audioSessionId > 0) BassBoost(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
     val virtualizer = remember(audioSessionId) { runCatching { if (audioSessionId > 0) Virtualizer(0, audioSessionId).apply { enabled = true } else null }.getOrNull() }
@@ -237,13 +243,15 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         runCatching { bassBoost?.setStrength(bassLevel.toInt().toShort()) }
         runCatching { virtualizer?.setStrength(virtualLevel.toInt().toShort()) }
     }
-    LaunchedEffect(trebleLevel, equalizer) {
+    LaunchedEffect(equalizer) {
+        val eq = equalizer ?: return@LaunchedEffect
         runCatching {
-            val lastBand = (equalizer?.numberOfBands?.toInt() ?: 0) - 1
-            if (lastBand >= 0) {
-                val range = equalizer!!.bandLevelRange
-                val level = (range[0] + (range[1] - range[0]) * (trebleLevel / 1000f)).toInt().toShort()
-                equalizer.setBandLevel(lastBand.toShort(), level)
+            eq.enabled = true
+            for (band in 0 until eq.numberOfBands.toInt()) {
+                val savedDb = prefs.getFloat("eq_band_$band", 0f)
+                val range = eq.bandLevelRange
+                val level = (savedDb * 100f).toInt().coerceIn(range[0].toInt(), range[1].toInt()).toShort()
+                eq.setBandLevel(band.toShort(), level)
             }
         }
     }
@@ -859,9 +867,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                         .clickable { selectedEqPreset = "Custom" }.padding(horizontal = 12.dp, vertical = 8.dp))
                             }
                             val bandCount = equalizer.numberOfBands.toInt()
-                            val labels = listOf("60 Hz", "230 Hz", "910 Hz", "3.6 kHz", "14 kHz")
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                (0 until minOf(5, bandCount)).forEach { band ->
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                (0 until bandCount).forEach { band ->
                                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                         val range = equalizer.bandLevelRange
                                         val minDb = range[0].toFloat() / 100f
@@ -876,9 +883,11 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                                                 if (band < copy.size) copy[band] = next
                                                 eqBandLevels = copy; selectedEqPreset = "Custom"
                                                 prefs.edit().putFloat("eq_band_$band", next).putString("eq_preset", "Custom").apply()
-                                                runCatching { equalizer.setBandLevel(band.toShort(), (next * 100f).toInt().toShort()) }
+                                                runCatching { equalizer.setBandLevel(band.toShort(), (next * 100f).toInt().coerceIn(range[0].toInt(), range[1].toInt()).toShort()) }
                                             })
-                                        Text(labels.getOrElse(band) { "Band ${band + 1}" }, color = muted, fontSize = 8.sp, maxLines = 1)
+                                        val centerHz = runCatching { equalizer.getCenterFreq(band.toShort()) / 1000 }.getOrDefault(0)
+                                        val frequencyLabel = if (centerHz >= 1000) String.format(Locale.getDefault(), "%.1f kHz", centerHz / 1000f) else "$centerHz Hz"
+                                        Text(frequencyLabel, color = muted, fontSize = 8.sp, maxLines = 1)
                                         Text(String.format(Locale.getDefault(), "%.1f", value) + " dB", color = fg, fontSize = 9.sp)
                                     }
                                 }
