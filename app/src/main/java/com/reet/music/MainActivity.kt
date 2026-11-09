@@ -1029,6 +1029,39 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
 }
 
 @Composable
+private fun VerticalEqualizerBand(
+    value: Float,
+    min: Float,
+    max: Float,
+    accent: Color,
+    track: Color,
+    modifier: Modifier = Modifier,
+    onValueChange: (Float) -> Unit
+) {
+    var heightPx by remember { mutableFloatStateOf(1f) }
+    val fraction = ((value - min) / (max - min).coerceAtLeast(.001f)).coerceIn(0f, 1f)
+    Canvas(modifier.pointerInput(min, max, heightPx) {
+        detectDragGestures { change, _ ->
+            change.consume()
+            val next = (1f - (change.position.y / size.height).coerceIn(0f, 1f))
+            onValueChange(min + (max - min) * next)
+        }
+    }) {
+        heightPx = size.height
+        val x = size.width / 2f
+        val top = 10.dp.toPx()
+        val bottom = size.height - 10.dp.toPx()
+        val center = (top + bottom) / 2f
+        val y = bottom - (bottom - top) * fraction
+        drawLine(track, Offset(x, top), Offset(x, bottom), strokeWidth = 7.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(accent.copy(alpha = .92f), Offset(x, center), Offset(x, y), strokeWidth = 7.dp.toPx(), cap = StrokeCap.Round)
+        drawCircle(accent.copy(alpha = .18f), radius = 13.dp.toPx(), center = Offset(x, y))
+        drawCircle(accent, radius = 6.dp.toPx(), center = Offset(x, y))
+        drawLine(track.copy(alpha = .75f), Offset(x - 8.dp.toPx(), center), Offset(x + 8.dp.toPx(), center), strokeWidth = 1.dp.toPx())
+    }
+}
+
+@Composable
 private fun rememberArtwork(albumId: Long): Bitmap? {
     val context = LocalContext.current
     val bitmap by produceState<Bitmap?>(initialValue = null, key1 = albumId) {
