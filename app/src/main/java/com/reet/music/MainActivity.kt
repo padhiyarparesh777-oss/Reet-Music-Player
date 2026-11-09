@@ -539,16 +539,16 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 ))))
                 val cardShape = RoundedCornerShape(34.dp)
                 Box(
-                    Modifier.fillMaxWidth(.88f).fillMaxHeight(.80f)
+                    Modifier.fillMaxWidth(.84f).fillMaxHeight(.74f)
                         .shadow(28.dp, cardShape, ambientColor = accent, spotColor = accent)
                         .clip(cardShape)
                         .border(1.2.dp, Color.White.copy(alpha = .90f), cardShape)
                 ) {
-                    if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper)
+                    if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper, darken = false)
                     Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(
-                        Color.White.copy(alpha = if (lightMode) .88f else .38f),
-                        Color(0xFFFFE7F0).copy(alpha = if (lightMode) .72f else .26f),
-                        Color.White.copy(alpha = if (lightMode) .64f else .32f)
+                        Color.White.copy(alpha = if (lightMode) .72f else .10f),
+                        Color(0xFFFFE7F0).copy(alpha = if (lightMode) .60f else .08f),
+                        Color.White.copy(alpha = if (lightMode) .48f else .10f)
                     ))))
                     Column(
                         Modifier.fillMaxSize().padding(horizontal = 19.dp, vertical = 13.dp),
@@ -562,14 +562,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         }
                         IconButton(onClick = { utility = "queue" }) { Icon(Icons.Default.MoreVert, "More options", tint = fg) }
                     }
-                    Box(Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                        if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
-                            modifier = Modifier.fillMaxHeight(.94f).aspectRatio(1f)
-                                .graphicsLayer { scaleX = artScale; scaleY = artScale }
-                                .shadow(20.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp)),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop)
-                        else ArtworkPlaceholder(accent, 220)
-                    }
+                    Spacer(Modifier.weight(1f))
                     Text(song.title, color = fg, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(song.artist + " · " + song.album, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(8.dp))
@@ -586,10 +579,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     Spacer(Modifier.height(7.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (player.shuffleModeEnabled) accent else muted) }
+                        IconButton(onClick = { player.shuffleModeEnabled = !player.shuffleModeEnabled }) { Icon(Icons.Default.Shuffle, "Shuffle", tint = if (player.shuffleModeEnabled) dynamicAccent else muted) }
                         IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = fg, modifier = Modifier.size(30.dp)) }
                         Box(Modifier.size(66.dp).shadow(12.dp, CircleShape).clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFFFFB7D0), Color(0xFFE5558A))))
+                            .background(Brush.linearGradient(listOf(dynamicAccent.copy(alpha = .95f), dynamicAccent.copy(alpha = .62f))))
                             .clickable { if (playing) player.pause() else player.play() }, contentAlignment = Alignment.Center) {
                             Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play/Pause", tint = Color.White, modifier = Modifier.size(34.dp))
                         }
@@ -602,10 +595,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     Spacer(Modifier.height(5.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        PlayerTool(Icons.Default.QueueMusic, "Queue") { utility = "queue" }
-                        PlayerTool(Icons.Default.Description, "Lyrics") { utility = "lyrics" }
-                        PlayerTool(Icons.Default.GraphicEq, "Equalizer") { utility = "equalizer" }
-                        PlayerTool(Icons.Default.PlaylistAdd, "Add to") { utility = "add" }
+                        PlayerTool(Icons.Default.QueueMusic, "Queue", dynamicAccent) { utility = "queue" }
+                        PlayerTool(Icons.Default.Description, "Lyrics", dynamicAccent) { utility = "lyrics" }
+                        PlayerTool(Icons.Default.GraphicEq, "Equalizer", dynamicAccent) { utility = "equalizer" }
+                        PlayerTool(Icons.Default.PlaylistAdd, "Add to", dynamicAccent) { utility = "add" }
                     }
                     Spacer(Modifier.height(5.dp))
                     }
@@ -874,9 +867,9 @@ private fun CircleAction(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 @Composable
-private fun PlayerTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun PlayerTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, accent: Color = Pink, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.softWhiteTap(onClick).padding(horizontal = 8.dp)) {
-        Icon(icon, null, tint = Pink, modifier = Modifier.size(21.dp))
+        Icon(icon, null, tint = accent, modifier = Modifier.size(21.dp))
         Text(label, color = SoftText, fontSize = 9.sp)
     }
 }
