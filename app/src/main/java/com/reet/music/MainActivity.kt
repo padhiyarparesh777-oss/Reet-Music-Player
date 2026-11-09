@@ -30,6 +30,8 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -200,6 +202,11 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var lyricsEdit by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+    var wallpaperMode by remember { mutableStateOf(prefs.getString("wallpaper_mode", "AUTO") ?: "AUTO") }
+    var wallpaperNames by remember { mutableStateOf(emptyList<String>()) }
+    var fixedWallpaper by remember { mutableStateOf(prefs.getString("fixed_wallpaper", "") ?: "") }
+    var wallpaperIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { wallpaperNames = withContext(Dispatchers.IO) { runCatching { context.assets.list("backgrounds")?.filter { it.endsWith(".jpg", true) || it.endsWith(".png", true) || it.endsWith(".webp", true) }?.sorted().orEmpty() }.getOrDefault(emptyList()) } }
 
     val baseAccent = when (accentName) {
         "Purple" -> Color(0xFFB99AFF)
@@ -257,6 +264,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 current = songs.firstOrNull { it.id.toString() == mediaItem?.mediaId }
+                if (mediaItem != null && wallpaperMode == "AUTO" && wallpaperNames.isNotEmpty()) wallpaperIndex = (wallpaperIndex + 1) % wallpaperNames.size
                 current?.let { s ->
                     recent = (listOf(s.id.toString()) + recent.filterNot { it == s.id.toString() }).take(100)
                     prefs.edit().putString("recent", recent.joinToString("|")).apply()
@@ -303,7 +311,14 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
 
     MaterialTheme(colorScheme = if (lightMode) lightColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg) else darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = fg)) {
       CompositionLocalProvider(LocalIndication provides ripple(color = Color.White.copy(alpha = .48f))) {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else heroGlow, bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF080910))))) {
+        Box(Modifier.fillMaxSize().background(bg)) {
+            val selectedWallpaper = when (wallpaperMode) {
+                "AUTO" -> wallpaperNames.getOrNull(wallpaperIndex)
+                "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
+                else -> null
+            }
+            if (!lightMode && selectedWallpaper != null) ReetWallpaper(selectedWallpaper)
+            else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else heroGlow, bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF080910)))))
             // Water-glass atmosphere with soft cyan and violet light blooms.
             Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background((if (lightMode) WaterTint else accent).copy(alpha = if (lightMode) .32f else .24f)).blur(78.dp))
             Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background((if (lightMode) Color(0xFFFFC9DC) else heroGlow).copy(alpha = if (lightMode) .30f else .30f)).blur(82.dp))
@@ -774,6 +789,20 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text("Appearance", color = fg, fontSize = 12.sp); Text("Choose light or dark mode", color = muted, fontSize = 9.sp) }
                     Switch(checked = lightMode, onCheckedChange = { lightMode = it; prefs.edit().putBoolean("light_mode", it).apply() })
+                }
+                Text("WALLPAPER MODE", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf("AUTO" to "Dark Auto", "FIXED" to "Dark Fixed", "OFF" to "Off").forEach { (mode, label) ->
+                        Text(label, color = if (wallpaperMode == mode) Color.White else muted, fontSize = 10.sp,
+                            modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (wallpaperMode == mode) accent.copy(alpha = .65f) else panel).clickable { wallpaperMode = mode; prefs.edit().putString("wallpaper_mode", mode).apply() }.padding(horizontal = 11.dp, vertical = 9.dp))
+                    }
+                }
+                if (wallpaperMode == "FIXED" && wallpaperNames.isNotEmpty()) {
+                    Text("CHOOSE WALLPAPER", color = muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Column(Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState())) {
+                        wallpaperNames.forEach { name -> Text(name.substringBeforeLast('.').replace('_', ' '), color = if (fixedWallpaper == name) accent else fg, fontSize = 10.sp,
+                            modifier = Modifier.fillMaxWidth().clickable { fixedWallpaper = name; prefs.edit().putString("fixed_wallpaper", name).apply() }.padding(vertical = 5.dp)) }
+                    }
                 }
                 Text("MARVEL HERO THEMES", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
