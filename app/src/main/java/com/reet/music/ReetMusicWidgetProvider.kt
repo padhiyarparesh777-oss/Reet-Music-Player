@@ -92,9 +92,21 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             manager.updateAppWidget(id, views)
         }
 
+        private fun decodeScaled(open: () -> java.io.InputStream, maxSide: Int): Bitmap? {
+            return try {
+                val bytes = open().use { it.readBytes() }
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                var sample = 1
+                while (bounds.outWidth / sample > maxSide * 2 || bounds.outHeight / sample > maxSide * 2) sample *= 2
+                val options = BitmapFactory.Options().apply { inSampleSize = sample.coerceAtLeast(1); inPreferredConfig = Bitmap.Config.RGB_565 }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            } catch (_: Exception) { null }
+        }
+
         private fun loadArtwork(context: Context, uriString: String?): Bitmap? {
             if (uriString.isNullOrBlank()) return null
-            return try { context.contentResolver.openInputStream(Uri.parse(uriString))?.use { BitmapFactory.decodeStream(it) } }
+            return try { decodeScaled({ context.contentResolver.openInputStream(Uri.parse(uriString)) ?: throw FileNotFoundException() }, 160) }
             catch (_: Exception) { null }
         }
 
@@ -108,7 +120,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
                     prefs.edit().putInt("widget_wallpaper_index", next).apply()
                     names[next]
                 } else prefs.getString("widget_wallpaper", names.first())?.takeIf { it in names } ?: names.first()
-                context.assets.open("backgrounds/$selected").use { BitmapFactory.decodeStream(it) }
+                decodeScaled({ context.assets.open("backgrounds/$selected") }, 600)
             } catch (_: Exception) { null }
         }
     }
