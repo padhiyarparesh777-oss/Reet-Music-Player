@@ -19,7 +19,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
         updateVariant(context, manager, ids, "Medium")
     }
 
-    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) { updateOne(context, manager, appWidgetId) }
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) { updateVariant(context, manager, intArrayOf(appWidgetId), "Medium") }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
