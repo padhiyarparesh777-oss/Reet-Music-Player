@@ -31,7 +31,14 @@ class MusicPlaybackService : MediaSessionService() {
         audioSessionId = player.audioSessionId
         mediaSession = MediaSession.Builder(this, player).build()
         player.addListener(object : Player.Listener {
-            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) = updateWidgetState()
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                val prefs = getSharedPreferences("reet_library", MODE_PRIVATE)
+                val count = assets.list("backgrounds")?.size ?: 1
+                if (prefs.getBoolean("widget_wallpaper_auto", true) && count > 0) {
+                    prefs.edit().putInt("widget_wallpaper_index", (prefs.getInt("widget_wallpaper_index", 0) + 1) % count).apply()
+                }
+                updateWidgetState()
+            }
             override fun onIsPlayingChanged(isPlaying: Boolean) = updateWidgetState()
             override fun onPlaybackStateChanged(playbackState: Int) = updateWidgetState()
         })
