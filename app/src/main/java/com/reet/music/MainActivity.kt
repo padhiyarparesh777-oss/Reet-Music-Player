@@ -427,6 +427,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val source = when {
         mediaCategory == "Favourites" || tab == "Favourites" -> songs.filter { favorites.contains(it.id.toString()) }
         mediaCategory == "New" -> songs.sortedByDescending { it.dateAdded }.take(50)
+        mediaCategory == "Duplicates" -> songs.groupBy { it.title.trim().lowercase(Locale.getDefault()) + "|" + it.artist.trim().lowercase(Locale.getDefault()) }.values.filter { it.size > 1 }.flatten()
         (tab == "Library" || tab == "Playlists") && selectedPlaylist != null -> when (selectedPlaylist) {
             "__recent__" -> recent.mapNotNull { id -> songs.firstOrNull { it.id.toString() == id } }
             else -> songs.filter { prefs.getStringSet("playlist_" + selectedPlaylist, emptySet())?.contains(it.id.toString()) == true }
@@ -486,7 +487,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 3.dp, bottom = 5.dp),
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    listOf("Songs", "New", "Favourites", "Albums", "Artists", "Folders").forEach { category ->
+                    listOf("Songs", "New", "Favourites", "Albums", "Artists", "Folders", "Duplicates").forEach { category ->
                         val selected = mediaCategory == category
                         Text(
                             category,
