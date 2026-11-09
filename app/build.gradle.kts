@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val persistentKeystorePath = System.getenv("KEYSTORE_PATH")
+
 android {
     namespace = "com.reet.music"
     compileSdk = 36
@@ -12,8 +14,27 @@ android {
         applicationId = "com.reet.music"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.3.1"
+        versionCode = 6
+        versionName = "1.3.2"
+    }
+
+    signingConfigs {
+        if (!persistentKeystorePath.isNullOrBlank()) {
+            create("persistent") {
+                storeFile = file(persistentKeystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (!persistentKeystorePath.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("persistent")
+            }
+        }
     }
 
     compileOptions {
