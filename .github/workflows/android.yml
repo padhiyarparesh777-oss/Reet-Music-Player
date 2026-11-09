@@ -88,9 +88,25 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle --no-daemon --stacktrace --max-workers=2 :app:assembleDebug
 
+      - name: Build signed release APK
+        if: env.KEYSTORE_PATH != ''
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle --no-daemon --stacktrace --max-workers=2 :app:assembleRelease
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: reet-android-16-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload signed release APK
+        if: env.KEYSTORE_PATH != '' && hashFiles('app/build/outputs/apk/release/app-release.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: reet-android-16-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
