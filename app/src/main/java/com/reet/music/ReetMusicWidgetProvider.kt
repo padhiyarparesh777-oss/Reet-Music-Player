@@ -19,6 +19,8 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
         ids.forEach { updateOne(context, manager, it) }
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) { updateOne(context, manager, appWidgetId) }
+
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_REFRESH || intent.action == AppWidgetManager.ACTION_APPWIDGET_OPTIONS_CHANGED) {
@@ -50,6 +52,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_title, title)
             views.setTextViewText(R.id.widget_artist, artist)
             views.setTextViewText(R.id.widget_play_pause, if (playing) "Ⅱ" else "▶")
+            views.setTextViewText(R.id.widget_favourite, if (prefs.getBoolean("widget_is_favourite", false)) "♥" else "♡")
             views.setOnClickPendingIntent(R.id.widget_previous, action(context, WidgetActionReceiver.PREVIOUS, id * 10 + 1))
             views.setOnClickPendingIntent(R.id.widget_play_pause, action(context, WidgetActionReceiver.PLAY_PAUSE, id * 10 + 2))
             views.setOnClickPendingIntent(R.id.widget_next, action(context, WidgetActionReceiver.NEXT, id * 10 + 3))
