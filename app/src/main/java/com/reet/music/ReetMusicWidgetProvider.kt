@@ -86,7 +86,7 @@ class ReetMusicWidgetProvider : AppWidgetProvider() {
             val compact = layoutMode == "Compact" || minWidth < 190 || minHeight < 82
             val large = layoutMode == "Large" && minWidth >= 220 && minHeight >= 95
             views.setViewVisibility(R.id.widget_artist, if (compact) android.view.View.GONE else android.view.View.VISIBLE)
-            views.setViewVisibility(R.id.widget_favourite, if (compact) android.view.View.GONE else android.view.View.VISIBLE)
+            views.setViewVisibility(R.id.widget_favourite, android.view.View.VISIBLE)
             views.setViewVisibility(R.id.widget_art, if (compact) android.view.View.GONE else android.view.View.VISIBLE)
             views.setTextViewText(R.id.widget_title, if (large) "♫  $title" else title)
             manager.updateAppWidget(id, views)
