@@ -33,6 +33,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -177,8 +179,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var query by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
     var recent by remember { mutableStateOf(prefs.getString("recent", "").orEmpty().split("|").filter { it.isNotBlank() }) }
-    var playlists by remember { mutableStateOf<List<String>>(prefs.getStringSet("playlist_names", emptySet())?.toList()?.sorted() ?: emptyList<String>()) }
-    var selectedPlaylist by remember { mutableStateOf<String?>(null) }
+    var playlists by remember { mutableStateOf<List<String>>(prefs.getStringSet("playlist_names", emptySet())?.toList()?.sorted() ?: emptyList<String>()) }    var selectedPlaylist by remember { mutableStateOf<String?>(null) }
     var playlistDialog by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("") }
     var showPlayer by remember { mutableStateOf(false) }
@@ -241,7 +242,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     }
 
     val source = when {
-        tab == "Favourites" -> songs.filter { favorites.contains(it.id.toString()) }
+        mediaCategory == "Favourites" || tab == "Favourites" -> songs.filter { favorites.contains(it.id.toString()) }
+        mediaCategory == "New" -> songs.sortedByDescending { it.dateAdded }.take(50)
         (tab == "Library" || tab == "Playlists") && selectedPlaylist != null -> when (selectedPlaylist) {
             "__recent__" -> recent.mapNotNull { id -> songs.firstOrNull { it.id.toString() == id } }
             else -> songs.filter { prefs.getStringSet("playlist_" + selectedPlaylist, emptySet())?.contains(it.id.toString()) == true }
@@ -280,6 +282,11 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     }
                     CircleAction(Icons.Default.Search, fg, panel) { tab = "Search"; mediaCategory = "Songs" }
                     Spacer(Modifier.width(8.dp))
+                    CircleAction(if (lightMode) Icons.Default.DarkMode else Icons.Default.LightMode, fg, panel) {
+                        lightMode = !lightMode
+                        prefs.edit().putBoolean("light_mode", lightMode).apply()
+                    }
+                    Spacer(Modifier.width(8.dp))
                     CircleAction(Icons.Default.NotificationsNone, fg, panel) { scan() }
                 }
                 AnimatedVisibility(visible = current != null, enter = androidx.compose.animation.fadeIn(tween(220)) + androidx.compose.animation.expandVertically(tween(260)), exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(180))) {
@@ -317,10 +324,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(
-                    Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 5.dp),
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 3.dp, bottom = 5.dp),
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    listOf("Songs", "Albums", "Artists", "Folders").forEach { category ->
+                    listOf("Songs", "New", "Favourites", "Albums", "Artists", "Folders").forEach { category ->
                         val selected = mediaCategory == category
                         Text(
                             category,
@@ -330,7 +337,11 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             modifier = Modifier.clip(RoundedCornerShape(18.dp))
                                 .background(if (selected) accent else panel.copy(alpha = .72f))
                                 .border(1.dp, if (selected) accent else glassStroke, RoundedCornerShape(18.dp))
-                                .clickable { mediaCategory = category; selectedPlaylist = null }
+                                .softWhiteTap {
+                                    mediaCategory = category
+                                    selectedPlaylist = null
+                                    tab = if (category == "Favourites") "Favourites" else "Home"
+                                }
                                 .padding(horizontal = 14.dp, vertical = 8.dp)
                         )
                     }
@@ -346,7 +357,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 Spacer(Modifier.height(17.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(when { tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; tab == "Favourites" -> "Your favourites"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(when { mediaCategory == "New" -> "Recently added"; mediaCategory == "Favourites" || tab == "Favourites" -> "Your favourites"; tab == "Home" -> "All Songs (" + songs.size + ")"; tab == "Search" -> "Search Results"; tab == "Playlists" -> "Your playlists"; selectedPlaylist != null -> if (selectedPlaylist == "__recent__") "Recently played" else selectedPlaylist!!; else -> "Your library" }, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text(visible.size.toString() + if (mediaCategory == "Songs") " tracks · Offline library" else " " + mediaCategory.lowercase(Locale.getDefault()), color = muted, fontSize = 10.sp)
                     }
                     Text("Sort: $sort", color = accent, fontSize = 10.sp, modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(panel.copy(alpha = .65f)).softWhiteTap { showSortOptions = true }.padding(horizontal = 10.dp, vertical = 8.dp))
@@ -357,8 +368,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             ArtworkPlaceholder(accent, 92)
-                            Spacer(Modifier.height(14.dp))
-                            Text("Your music lives here", color = fg, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(14.dp))                            Text("Your music lives here", color = fg, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             Text("Allow access to scan songs stored on your phone.", color = muted, fontSize = 11.sp, textAlign = TextAlign.Center)
                             Spacer(Modifier.height(14.dp))
                             Button(onClick = { permissionLauncher.launch(audioPermission) }, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.White)) { Text("Allow music access") }
@@ -537,8 +547,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                     modifier = Modifier.fillMaxSize().blur(70.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
                     Color.White.copy(alpha = if (lightMode) .62f else .24f), bg.copy(alpha = .72f),
-                    Color.White.copy(alpha = if (lightMode) .76f else .18f)
-                ))))
+                    Color.White.copy(alpha = if (lightMode) .76f else .18f)                ))))
                 val cardShape = RoundedCornerShape(34.dp)
                 Column(
                     Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 13.dp)
@@ -717,8 +726,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                             accentName = name; prefs.edit().putString("accent", name).apply()
                         })
                     }
-                }
-                Divider(color = glassStroke)
+                }                Divider(color = glassStroke)
                 Text("Audio & Playback", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { showSettings = false; utility = "equalizer" }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.GraphicEq, null, tint = accent); Spacer(Modifier.width(10.dp))
