@@ -407,18 +407,21 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     val writeTagsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         val pending = pendingTagValues
         pendingTagValues = null
-        if (result.resultCode == Activity.RESULT_OK && pending != null) {
+        if (pending != null) {
             val id = pending["id"]?.toLongOrNull()
             val song = songs.firstOrNull { it.id == id }
             if (id != null && song != null) {
-                runCatching {
-                    val values = ContentValues().apply {
-                        put(MediaStore.Audio.Media.TITLE, pending["title"])
-                        put(MediaStore.Audio.Media.ARTIST, pending["artist"])
-                        put(MediaStore.Audio.Media.ALBUM, pending["album"])
+                if (result.resultCode == Activity.RESULT_OK) {
+                    runCatching {
+                        val values = ContentValues().apply {
+                            put(MediaStore.Audio.Media.TITLE, pending["title"])
+                            put(MediaStore.Audio.Media.ARTIST, pending["artist"])
+                            put(MediaStore.Audio.Media.ALBUM, pending["album"])
+                        }
+                        context.contentResolver.update(song.uri, values, null, null)
                     }
-                    context.contentResolver.update(song.uri, values, null, null)
                 }
+                // Keep the in-app metadata even when the user declines the system write prompt.
                 persistSongMetadata(id, pending["title"].orEmpty(), pending["artist"].orEmpty(), pending["album"].orEmpty())
                 metadataEdit = false
             }
