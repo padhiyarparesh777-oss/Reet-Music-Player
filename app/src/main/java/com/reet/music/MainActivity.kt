@@ -388,17 +388,31 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 val lines = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readLines() }.orEmpty()
                 val imported = mutableListOf<Song>()
                 var pendingTitle: String? = null
-                lines.filter { it.isNotBlank() }.forEach { line ->
+                var pendingArtist: String? = null
+                lines.filter { it.isNotBlank() }.forEach { rawLine ->
+                    val line = rawLine.trim()
                     when {
-                        line.startsWith("#EXTINF:", true) -> pendingTitle = line.substringAfter(",", "").substringBefore(" - ").trim()
+                        line.startsWith("#EXTINF:", true) -> {
+                            val info = line.substringAfter(",", "")
+                            pendingTitle = info.substringBefore(" - ").trim()
+                            pendingArtist = info.substringAfter(" - ", "").trim().takeIf { it.isNotBlank() }
+                        }
                         line.startsWith("#") -> Unit
                         else -> {
-                            val exact = songs.firstOrNull { it.uri.toString() == line.trim() }
-                            val fileName = line.substringAfterLast('/').substringBeforeLast('.').trim()
+                            val exact = songs.firstOrNull { it.uri.toString() == line }
+                            val decodedPath = runCatching { Uri.decode(Uri.parse(line).lastPathSegment ?: line) }.getOrDefault(line)
+                            val fileName = decodedPath.substringAfterLast('/').substringBeforeLast('.').trim()
                             val title = pendingTitle?.takeIf { it.isNotBlank() } ?: fileName
-                            val match = exact ?: songs.firstOrNull { it.title.equals(title, true) }
+                            val artist = pendingArtist
+                            val byTitleAndArtist = songs.firstOrNull {
+                                it.title.equals(title, true) && (artist == null || it.artist.equals(artist, true))
+                            }
+                            val match = exact ?: byTitleAndArtist ?: songs.firstOrNull {
+                                it.title.equals(title, true) || it.title.equals(fileName, true)
+                            }
                             if (match != null && imported.none { it.id == match.id }) imported += match
                             pendingTitle = null
+                            pendingArtist = null
                         }
                     }
                 }
