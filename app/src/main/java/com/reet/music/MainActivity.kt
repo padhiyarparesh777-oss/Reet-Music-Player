@@ -132,7 +132,7 @@ private fun parseLrcLyrics(raw: String): List<LrcLine> {
                 LrcLine((minutes * 60L + seconds) * 1000L + millis, lyric)
             }
         }
-    }.sortedBy { it.timeMs }
+    }.sortedBy { it.timeMs }.toList()
 }
 
 private fun activeLrcIndex(lines: List<LrcLine>, positionMs: Long): Int =
