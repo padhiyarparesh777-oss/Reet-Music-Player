@@ -1,6 +1,6 @@
 # Reet Music Player
 
-A native Android offline music player with a frosted-glass interface, animated now-playing screen and Media3 background playback.
+A native Android offline music player with a minimal white and sky-blue frosted-glass interface, responsive 6.7-inch-first layouts, animated now-playing screen and Media3 background playback.
 
 ## Technology
 - Kotlin, Jetpack Compose and Material 3
@@ -21,7 +21,7 @@ A native Android offline music player with a frosted-glass interface, animated n
 - Media session, lock-screen and notification controls
 - Compact, medium and large home-screen widgets
 - MediaLibraryService browsing structure and Android Auto media declaration
-- Dark/light themes, accent options and bundled wallpapers
+- Light-first white/sky-blue theme, dark mode, accent options and bundled wallpapers
 - Offline-first: no account, streaming service, API key or network permission
 
 ## Android compatibility

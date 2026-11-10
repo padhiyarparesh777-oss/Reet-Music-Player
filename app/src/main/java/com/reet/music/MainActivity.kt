@@ -244,8 +244,8 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     var sort by remember { mutableStateOf(prefs.getString("sort", "Name") ?: "Name") }
     var ascending by remember { mutableStateOf(true) }
     var showSortOptions by remember { mutableStateOf(false) }
-    var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", false)) }
-    var accentName by remember { mutableStateOf(prefs.getString("accent", "Pink") ?: "Pink") }
+    var lightMode by remember { mutableStateOf(prefs.getBoolean("light_mode", true)) }
+    var accentName by remember { mutableStateOf(prefs.getString("accent", "Sky Blue") ?: "Sky Blue") }
     var skipShortTracks by remember { mutableStateOf(prefs.getBoolean("skip_under_60s", false)) }
     var lyrics by remember { mutableStateOf("") }
     var lyricsEdit by remember { mutableStateOf(false) }
@@ -302,17 +302,18 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
     LaunchedEffect(Unit) { wallpaperNames = withContext(Dispatchers.IO) { runCatching { context.assets.list("backgrounds")?.filter { it.endsWith(".jpg", true) || it.endsWith(".png", true) || it.endsWith(".webp", true) }?.sorted().orEmpty() }.getOrDefault(emptyList()) } }
 
     val baseAccent = when (accentName) {
+        "Sky Blue" -> Color(0xFF29B6F6)
         "Purple" -> Color(0xFFB99AFF)
         "Blue" -> Color(0xFF76BFFF)
         "Red" -> Color(0xFFFF6474)
         "Mint" -> Color(0xFF65DDB5)
         "Gold" -> Color(0xFFE8C16C)
-        else -> Pink
+        else -> Color(0xFF29B6F6)
     }
-    val heroGlow = Color(0xFF17132A)
-    val bg = if (lightMode) Color(0xFFFFF7FB) else Charcoal
+    val heroGlow = Color(0xFFEAF7FF)
+    val bg = if (lightMode) Color(0xFFFFFFFF) else Charcoal
     val panel = if (lightMode) Color(0xD9FFFFFF) else Color(0xB8171B28)
-    val glassStroke = if (lightMode) Color.White.copy(alpha = .70f) else Color.White.copy(alpha = .16f)
+    val glassStroke = if (lightMode) Color.White.copy(alpha = .88f) else Color.White.copy(alpha = .16f)
     val selectedWallpaperForTheme = when (wallpaperMode) {
         "AUTO" -> wallpaperNames.getOrNull(wallpaperIndex)
         "FIXED" -> fixedWallpaper.takeIf { it in wallpaperNames }
@@ -1275,7 +1276,7 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                         }
                         Text("ACCENT COLOUR", color = muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            listOf("Pink" to Pink, "Purple" to Color(0xFFB99AFF), "Blue" to Color(0xFF76BFFF), "Red" to Color(0xFFFF6474), "Mint" to Color(0xFF65DDB5), "Gold" to Color(0xFFE8C16C)).forEach { (name, color) ->
+                            listOf("Sky Blue" to Color(0xFF29B6F6), "Purple" to Color(0xFFB99AFF), "Blue" to Color(0xFF76BFFF), "Pink" to Pink, "Mint" to Color(0xFF65DDB5), "Gold" to Color(0xFFE8C16C)).forEach { (name, color) ->
                                 Box(Modifier.size(31.dp).clip(CircleShape).background(color).border(if (accentName == name) 3.dp else 0.dp, fg, CircleShape)
                                     .clickable { accentName = name; prefs.edit().putString("accent", name).apply() })
                             }
