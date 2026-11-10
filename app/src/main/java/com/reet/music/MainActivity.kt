@@ -106,13 +106,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val Pink = Color(0xFFFF8DBB)
+private val Pink = Color(0xFF29B6F6)
 private val Charcoal = Color(0xFF090A10)
 private val Deep = Color(0xFF06070C)
 private val SoftText = Color(0xFFA5A7B5)
 private val Glass = Color(0xFF171A25)
 private val Line = Color(0x40FFFFFF)
-private val WaterTint = Color(0xFF8D7BFF)
+private val WaterTint = Color(0xFFB9E7FF)
 
 
 private data class LrcLine(val timeMs: Long, val text: String)
@@ -546,10 +546,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
         Box(Modifier.fillMaxSize().background(bg)) {
             val selectedWallpaper = selectedWallpaperForTheme
             if (!lightMode && selectedWallpaper != null) ReetWallpaper(selectedWallpaper)
-            else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFE1EC) else heroGlow, bg, if (lightMode) Color(0xFFFFFBFD) else Color(0xFF080910)))))
+            else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(if (lightMode) Color(0xFFFFFFFF) else heroGlow, bg, if (lightMode) Color(0xFFF4FBFF) else Color(0xFF080910)))))
             // Water-glass atmosphere with soft cyan and violet light blooms.
             Box(Modifier.align(Alignment.TopEnd).padding(top = 45.dp, end = 4.dp).size(260.dp).clip(CircleShape).background((if (lightMode) WaterTint else accent).copy(alpha = if (lightMode) .32f else .24f)).blur(78.dp))
-            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background((if (lightMode) Color(0xFFFFC9DC) else heroGlow).copy(alpha = if (lightMode) .30f else .30f)).blur(82.dp))
+            Box(Modifier.align(Alignment.BottomStart).padding(bottom = 145.dp, start = 0.dp).size(220.dp).clip(CircleShape).background((if (lightMode) Color(0xFFB9E7FF) else heroGlow).copy(alpha = if (lightMode) .22f else .30f)).blur(82.dp))
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -736,10 +736,10 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }, animationSpec = tween(180)) + fadeOut(tween(140))
             ) {
                 Row(
-                    Modifier.fillMaxWidth().height(72.dp).shadow(22.dp, RoundedCornerShape(22.dp))
+                    Modifier.fillMaxWidth().height(72.dp).shadow(16.dp, RoundedCornerShape(22.dp), ambientColor = accent.copy(alpha = .10f), spotColor = accent.copy(alpha = .12f))
                         .clip(RoundedCornerShape(22.dp))
-                        .background(Brush.linearGradient(listOf(Color.White.copy(alpha = .20f), panel.copy(alpha = .88f), accent.copy(alpha = .22f))))
-                        .border(1.dp, Color.White.copy(alpha = .34f), RoundedCornerShape(22.dp))
+                        .background(Brush.linearGradient(listOf(Color.White.copy(alpha = .96f), Color(0xFFF4FBFF).copy(alpha = .96f), accent.copy(alpha = .10f))))
+                        .border(1.dp, Color(0xFFB9E7FF).copy(alpha = .75f), RoundedCornerShape(22.dp))
                         .softWhiteTap { showPlayer = true }.padding(horizontal = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -834,18 +834,18 @@ private fun ReetApp(player: Player, loadSongs: () -> List<Song>) {
                 } else if (art != null) androidx.compose.foundation.Image(art.asImageBitmap(), null,
                     modifier = Modifier.fillMaxSize().blur(64.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
-                    Color.Black.copy(alpha = .48f), bg.copy(alpha = .56f), Color.Black.copy(alpha = .52f)
+                    if (lightMode) Color.White.copy(alpha = .42f) else Color.Black.copy(alpha = .48f), bg.copy(alpha = .56f), if (lightMode) Color(0xFFEAF7FF).copy(alpha = .35f) else Color.Black.copy(alpha = .52f)
                 ))))
                 val cardShape = RoundedCornerShape(34.dp)
                 Box(
-                    Modifier.fillMaxWidth(.84f).fillMaxHeight(.74f)
-                        .shadow(38.dp, cardShape, ambientColor = Color.Black, spotColor = Color.Black)
+                    Modifier.fillMaxWidth(.88f).fillMaxHeight(.78f)
+                        .shadow(26.dp, cardShape, ambientColor = accent.copy(alpha = .12f), spotColor = accent.copy(alpha = .16f))
                         .clip(cardShape)
                 ) {
                     if (!lightMode && playerWallpaper != null) ReetWallpaper(playerWallpaper, darken = false)
                     Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(
                         Color.White.copy(alpha = if (lightMode) .72f else .10f),
-                        Color(0xFFFFE7F0).copy(alpha = if (lightMode) .60f else .08f),
+                        Color(0xFFEAF7FF).copy(alpha = if (lightMode) .72f else .08f),
                         Color.White.copy(alpha = if (lightMode) .48f else .10f)
                     ))))
                     Column(
